@@ -1,0 +1,65 @@
+/* index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Base Typography */
+@layer base {
+  h1 {
+    @apply text-3xl font-bold;
+  }
+  h2 {
+    @apply text-2xl font-semibold;
+  }
+  h3 {
+    @apply text-xl font-medium;
+  }
+  h4 {
+    @apply text-lg font-medium;
+  }
+}
+
+/* Table Styles */
+@layer components {
+  .table-header {
+    @apply px-8 py-4 text-left text-base font-medium text-gray-500 uppercase tracking-wider;
+  }
+  
+  .table-cell {
+    @apply px-8 py-4 text-base whitespace-nowrap;
+  }
+
+  .status-badge {
+    @apply px-3 py-1 text-sm font-medium rounded-full;
+  }
+}
+
+/* Card Styles */
+.stats-card {
+  @apply p-6 rounded-lg shadow-sm bg-white;
+}
+
+.stats-value {
+  @apply text-3xl font-semibold mt-2;
+}
+
+/* Form Controls */
+.form-input {
+  @apply text-base p-3;
+}
