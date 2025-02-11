@@ -51,6 +51,12 @@ const generateOrderNumber = () => {
   return `${year}${month}${day}${sequence}`
 }
 
+const calculateDailyRate = (days) => {
+  if (days > 10) return 800; // Discounted rate for rentals longer than 10 days
+  if (days > 5) return 1000; // Discounted rate for rentals between 6 and 10 days
+  return 1200; // Base rate for rentals up to 5 days
+};
+
 // IPC Handlers
 ipcMain.handle('getScooters', () => {
   return store.get('scooters');
@@ -127,7 +133,29 @@ ipcMain.handle('updateRental', (event, rental) => {
 
 ipcMain.handle('deleteRental', (event, id) => {
   const rentals = store.get('rentals');
+  const scooters = store.get('scooters');
+
+  // Find the rental to delete
+  const rentalToDelete = rentals.find(r => r.id === id);
+  if (!rentalToDelete) {
+    throw new Error('Rental not found');
+  }
+
+  // Ensure the scooter associated with the rental remains intact
+  const updatedScooters = scooters.map(scooter => {
+    if (scooter.id === rentalToDelete.scooterId) {
+      return {
+        ...scooter,
+        status: 'available', // Reset scooter status to available
+      };
+    }
+    return scooter;
+  });
+
+  // Update the store
+  store.set('scooters', updatedScooters);
   store.set('rentals', rentals.filter(r => r.id !== id));
+
   return id;
 });
 
@@ -158,3 +186,6 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+const totalAmount = days * calculatedDailyRate; // Final amount after applying discount
+const originalAmount = days * 1200; // Original amount without discount
