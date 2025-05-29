@@ -183,42 +183,42 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">Rental Calendar</h2>
+    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Rental Calendar</h2>
         
         {/* Legend */}
-        <div className="flex items-center space-x-4 text-sm">
+        <div className="flex items-center space-x-4 text-xs sm:text-sm">
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-blue-500 bg-blue-500 rounded"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-blue-500 bg-blue-500 rounded"></div>
             <span>Paid</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-dashed border-blue-500 bg-blue-500 opacity-70 rounded"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-dashed border-blue-500 bg-blue-500 opacity-70 rounded"></div>
             <span>Unpaid</span>
           </div>
         </div>
       </div>
-
-      {/* Scooter Legend - עכשיו עם הצבעים האמיתיים */}
+  
+      {/* Scooter Legend - מותאם למובייל */}
       <div className="mb-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Scooters:</h3>
-        <div className="flex flex-wrap gap-3">
+        <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Scooters:</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
           {scooters.map(scooter => (
-            <div key={scooter.id} className="flex items-center space-x-2 text-sm bg-gray-50 px-3 py-1 rounded-full">
+            <div key={scooter.id} className="flex items-center space-x-2 text-xs sm:text-sm bg-gray-50 px-2 py-1 rounded-full">
               <div 
-                className="w-4 h-4 rounded-full border border-gray-300" 
+                className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-gray-300 flex-shrink-0" 
                 style={{ backgroundColor: scooterColors[scooter.id] }}
               ></div>
-              <span className="font-medium">{scooter.licensePlate}</span>
-              <span className="text-gray-500">({scooter.color})</span>
+              <span className="font-medium truncate">{scooter.licensePlate}</span>
+              <span className="text-gray-500 truncate">({scooter.color})</span>
             </div>
           ))}
         </div>
       </div>
-
+  
       {/* Calendar */}
-      <div style={{ height: '600px' }}>
+      <div className="calendar-container" style={{ height: 'clamp(300px, 50vh, 600px)' }}>
         <Calendar
           localizer={localizer}
           events={events}
@@ -232,21 +232,33 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
           popup
           views={['month', 'week', 'day']}
           defaultView="month"
+          step={60}
+          showMultiDayTimes
           components={{
             event: ({ event }) => (
-              <div className="flex items-center justify-between text-xs">
-                <span className="truncate">{event.title}</span>
+              <div className="flex items-center justify-between text-xs overflow-hidden">
+                <span className="truncate flex-1 mr-1">{event.title}</span>
                 {event.resource.isPaid ? (
-                  <DollarSign className="w-3 h-3 ml-1" />
+                  <DollarSign className="w-2 h-2 sm:w-3 sm:h-3 flex-shrink-0" />
                 ) : (
-                  <span className="text-red-200">!</span>
+                  <span className="text-red-200 flex-shrink-0">!</span>
                 )}
               </div>
             )
           }}
+          formats={{
+            dayHeaderFormat: (date, culture, localizer) =>
+              window.innerWidth < 768 
+                ? localizer.format(date, 'dd', culture)
+                : localizer.format(date, 'dddd M/D', culture),
+            dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
+              window.innerWidth < 768
+                ? `${localizer.format(start, 'M/D', culture)} - ${localizer.format(end, 'M/D', culture)}`
+                : `${localizer.format(start, 'MMMM DD', culture)} - ${localizer.format(end, 'MMMM DD', culture)}`
+          }}
         />
       </div>
-
+  
       {/* Day Details Modal */}
       {showDayDetails && selectedDate && (
         <DayDetailsModal
@@ -263,84 +275,84 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
 
 // Day Details Modal Component
 const DayDetailsModal = ({ date, rentals, onClose, onViewRental, onNewRental }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">
-            {moment(date).format('MMMM D, YYYY')}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">
-              {rentals.length} rental{rentals.length !== 1 ? 's' : ''} today
-            </span>
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base sm:text-lg font-medium">
+              {moment(date).format('MMMM D, YYYY')}
+            </h3>
             <button
-              onClick={() => {
-                onNewRental?.({ startDate: date })
-                onClose()
-              }}
-              className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-xl sm:text-2xl p-1"
             >
-              <Plus className="w-4 h-4 mr-1" />
-              New Rental
+              ×
             </button>
           </div>
-
-          {rentals.map(event => {
-            const { rental } = event.resource
-            return (
-              <div
-                key={rental.id}
-                className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer"
+  
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <span className="text-sm text-gray-600">
+                {rentals.length} rental{rentals.length !== 1 ? 's' : ''} today
+              </span>
+              <button
                 onClick={() => {
-                  onViewRental?.(rental)
+                  onNewRental?.({ startDate: date })
                   onClose()
                 }}
+                className="flex items-center justify-center px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 w-full sm:w-auto"
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-start space-x-3">
-                    {/* נקודת צבע של האופנוע */}
-                    <div 
-                      className="w-4 h-4 rounded-full border border-gray-300 mt-0.5 flex-shrink-0" 
-                      style={{ backgroundColor: event.resource.color }}
-                    ></div>
-                    <div>
-                      <div className="font-medium text-gray-900">
-                        {rental.scooterLicense}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {rental.customerName}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {moment(rental.startDate).format('MMM D')} - {moment(rental.endDate).format('MMM D')}
+                <Plus className="w-4 h-4 mr-1" />
+                New Rental
+              </button>
+            </div>
+  
+            {rentals.map(event => {
+              const { rental } = event.resource
+              return (
+                <div
+                  key={rental.id}
+                  className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    onViewRental?.(rental)
+                    onClose()
+                  }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-start space-x-3 flex-1 min-w-0">
+                      {/* נקודת צבע של האופנוע */}
+                      <div 
+                        className="w-4 h-4 rounded-full border border-gray-300 mt-0.5 flex-shrink-0" 
+                        style={{ backgroundColor: event.resource.color }}
+                      ></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 truncate">
+                          {rental.scooterLicense}
+                        </div>
+                        <div className="text-sm text-gray-600 truncate">
+                          {rental.customerName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {moment(rental.startDate).format('MMM D')} - {moment(rental.endDate).format('MMM D')}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {rental.paid ? (
-                      <DollarSign className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <span className="text-xs text-red-600 font-medium">Unpaid</span>
-                    )}
-                    <Eye className="w-4 h-4 text-gray-400" />
+                    <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                      {rental.paid ? (
+                        <DollarSign className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <span className="text-xs text-red-600 font-medium">Unpaid</span>
+                      )}
+                      <Eye className="w-4 h-4 text-gray-400" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
 export default RentalCalendar

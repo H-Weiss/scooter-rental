@@ -4,9 +4,23 @@ import './index.css'
 import ScooterManagement from './components/scooters/ScooterManagement'
 import RentalManagement from './components/rentals/RentalManagement'
 import RentalCalendar from './components/calendar/RentalCalendar'
+import Header from './components/Header'
+import LoginPage from './components/LoginPage'
 import { StatisticsProvider, useStatistics } from './context/StatisticsContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { clearDatabase, getScooters, getRentals } from './lib/database'
-import logo from './assets/logo.jpg'
+
+// Loading Screen Component
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading application...</p>
+      </div>
+    </div>
+  )
+}
 
 // Dialog Component for Confirmation
 function ConfirmDialog({ isOpen, onClose, onConfirm, title, message }) {
@@ -102,24 +116,24 @@ function Dashboard() {
   ]
 
   return (
-    <div className="space-y-6 mb-6">
+    <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-6">
       {/* סטטיסטיקות כלליות */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.id} className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  <stat.icon className={`h-5 w-5 sm:h-6 sm:w-6 ${stat.color}`} />
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                <div className="ml-3 sm:ml-5 w-0 flex-1">
+                  <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
                     {stat.name}
                   </dt>
                   <dd className="flex items-baseline">
-                    <div className="text-lg font-semibold text-gray-900">
+                    <div className="text-base sm:text-lg font-semibold text-gray-900">
                       {statistics.isLoading ? (
-                        <div className="animate-pulse bg-gray-200 h-6 w-8 rounded"></div>
+                        <div className="animate-pulse bg-gray-200 h-4 sm:h-6 w-6 sm:w-8 rounded"></div>
                       ) : (
                         stat.value
                       )}
@@ -133,24 +147,24 @@ function Dashboard() {
       </div>
 
       {/* סטטיסטיקות כספיות */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:gap-5 sm:grid-cols-2">
         {financialStats.map((stat) => (
           <div key={stat.id} className={`${stat.bgColor} overflow-hidden shadow rounded-lg border-l-4 border-${stat.color.split('-')[1]}-500`}>
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
+                  <stat.icon className={`h-6 w-6 sm:h-8 sm:w-8 ${stat.color}`} />
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dt className="text-sm font-medium text-gray-600 truncate">
+                <div className="ml-3 sm:ml-5 w-0 flex-1">
+                  <dt className="text-xs sm:text-sm font-medium text-gray-600 truncate">
                     {stat.name}
                   </dt>
                   <dd className="flex items-baseline">
-                    <div className={`text-2xl font-bold ${stat.color}`}>
+                    <div className={`text-lg sm:text-2xl font-bold ${stat.color}`}>
                       {statistics.isLoading ? (
-                        <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
+                        <div className="animate-pulse bg-gray-200 h-6 sm:h-8 w-16 sm:w-24 rounded"></div>
                       ) : (
-                        stat.value
+                        <span className="break-all">{stat.value}</span>
                       )}
                     </div>
                   </dd>
@@ -218,8 +232,9 @@ function CalendarSection({ refreshTrigger }) {
   )
 }
 
-function App() {
-  const [activeTab, setActiveTab] = useState('scooters')
+// Main App Component (Protected)
+function MainApp() {
+  const [activeTab, setActiveTab] = useState('rentals')
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [error, setError] = useState(null)
@@ -270,104 +285,117 @@ function App() {
   }
 
   return (
-    <StatisticsProvider>
-      <div className="min-h-screen bg-gray-100">
-        {/* Header */}
-        <header className="bg-white shadow">
-        <div className="w-full py-4 px-8 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <img 
-              src={logo} 
-              alt="Chapo-Samoui Logo" 
-              className="h-20 w-auto object-contain"
-            />
-            <h1 className="text-3xl font-bold text-gray-800">
-              Chapo-Samui Scooter Rental Management
-            </h1>
-          </div>
-          <button
-            onClick={() => setShowConfirmDialog(true)}
-            className="px-6 py-3 text-base font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
-            disabled={isClearing}
-          >
-            {isClearing ? 'Clearing...' : 'Clear All Data'}
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <Header 
+        onClearDatabase={() => setShowConfirmDialog(true)}
+        isClearing={isClearing}
+      />
 
-        {/* Error Message */}
-        {error && (
-          <div className="w-full py-8 px-8">
-            <div className="bg-red-50 border-l-4 border-red-400 p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <AlertTriangle className="h-5 w-5 text-red-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
+      {/* Error Message */}
+      {error && (
+        <div className="w-full py-4 sm:py-8 px-4 sm:px-8">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          {/* Dashboard Stats */}
-          <Dashboard />
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
+        {/* Dashboard Stats */}
+        <Dashboard />
 
-          {/* Calendar Section */}
-          <CalendarSection refreshTrigger={calendarRefreshTrigger} />
+        {/* Calendar Section */}
+        <CalendarSection refreshTrigger={calendarRefreshTrigger} />
 
-          {/* Navigation */}
-          <div className="bg-white shadow mb-6">
-            <nav className="flex space-x-4 px-4" aria-label="Tabs">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    ${activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                    flex items-center px-3 py-2 border-b-2 text-sm font-medium
-                  `}
-                >
-                  <tab.icon className="h-5 w-5 mr-2" />
-                  {tab.name}
-                </button>
-              ))}
-            </nav>
-          </div>
+        {/* Navigation - מותאם למובייל */}
+        <div className="bg-white shadow mb-6 overflow-x-auto">
+          <nav className="flex space-x-2 sm:space-x-4 px-4 min-w-max" aria-label="Tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  ${activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }
+                  flex items-center px-3 py-2 border-b-2 text-sm font-medium whitespace-nowrap
+                `}
+              >
+                <tab.icon className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{tab.name}</span>
+                <span className="sm:hidden">{tab.name.charAt(0)}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
 
-          {/* Content Area */}
-          <div className="bg-white shadow rounded-lg">
-            {activeTab === 'scooters' ? (
-              <ScooterManagementWrapper />
-            ) : activeTab === 'rentals' ? (
-              <RentalManagementWrapper />
-            ) : (
-              <div className="p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">
-                  {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management
-                </h2>
-                <p className="text-gray-500">
-                  This section will display the {activeTab} management interface.
-                </p>
-              </div>
-            )}
-          </div>
-        </main>
+        {/* Content Area */}
+        <div className="bg-white shadow rounded-lg">
+          {activeTab === 'scooters' ? (
+            <ScooterManagementWrapper />
+          ) : activeTab === 'rentals' ? (
+            <RentalManagementWrapper />
+          ) : (
+            <div className="p-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">
+                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management
+              </h2>
+              <p className="text-gray-500">
+                This section will display the {activeTab} management interface.
+              </p>
+            </div>
+          )}
+        </div>
+      </main>
 
-        {/* Confirm Dialog */}
-        <ConfirmDialog
-          isOpen={showConfirmDialog}
-          onClose={() => setShowConfirmDialog(false)}
-          onConfirm={handleClearDatabase}
-          title="Clear All Data"
-          message="Are you sure you want to delete all data? This action cannot be undone."
-        />
-      </div>
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={handleClearDatabase}
+        title="Clear All Data"
+        message="Are you sure you want to delete all data? This action cannot be undone."
+      />
+    </div>
+  )
+}
+
+// Root App Component with Authentication
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  )
+}
+
+// App Content with Authentication Check
+function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return <LoadingScreen />
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
+
+  // Show main app if authenticated
+  return (
+    <StatisticsProvider>
+      <MainApp />
     </StatisticsProvider>
   )
 }

@@ -25,9 +25,9 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-2xl relative z-60">
-        <h3 className="text-lg font-medium mb-6 text-gray-900">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-md shadow-2xl relative z-60 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-medium mb-4 sm:mb-6 text-gray-900">
           {initialData ? 'Edit Scooter' : 'Add New Scooter'}
         </h3>
         
@@ -40,7 +40,7 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
               type="text"
               value={formData.licensePlate}
               onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-base bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               required
             />
           </div>
@@ -53,7 +53,7 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
               type="text"
               value={formData.color}
               onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-base bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="Enter color or select from suggestions"
               required
             />
@@ -62,7 +62,7 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
             <div className="mt-2">
               <p className="text-xs text-gray-500 mb-2">Quick select:</p>
               <div className="flex flex-wrap gap-1">
-                {commonColors.slice(0, 10).map((color) => (
+                {commonColors.slice(0, 5).map((color) => (
                   <button
                     key={color}
                     type="button"
@@ -78,9 +78,9 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
                 ))}
               </div>
               
-              {/* שורה שנייה עם צבעים באנגלית */}
-              <div className="flex flex-wrap gap-1 mt-1">
-                {commonColors.slice(10).map((color) => (
+              {/* שורה שנייה - רק במסכים גדולים יותר */}
+              <div className="hidden sm:flex flex-wrap gap-1 mt-1">
+                {commonColors.slice(5, 10).map((color) => (
                   <button
                     key={color}
                     type="button"
@@ -98,33 +98,35 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Year
-            </label>
-            <input
-              type="number"
-              value={formData.year}
-              onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              min="2000"
-              max={new Date().getFullYear() + 1}
-              required
-            />
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Year
+              </label>
+              <input
+                type="number"
+                value={formData.year}
+                onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-base bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                min="2000"
+                max={new Date().getFullYear() + 1}
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mileage (km)
-            </label>
-            <input
-              type="number"
-              value={formData.mileage}
-              onChange={(e) => setFormData({ ...formData, mileage: Number(e.target.value) })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              min="0"
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mileage (km)
+              </label>
+              <input
+                type="number"
+                value={formData.mileage}
+                onChange={(e) => setFormData({ ...formData, mileage: Number(e.target.value) })}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-base bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                min="0"
+                required
+              />
+            </div>
           </div>
 
           <div>
@@ -134,7 +136,7 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
             <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-base bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               required
             >
               <option value="available">Available</option>
@@ -143,17 +145,17 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
             </select>
           </div>
 
-          <div className="flex justify-end space-x-3 mt-8 pt-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:justify-end space-y-3 sm:space-y-0 sm:space-x-3 mt-6 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               {initialData ? 'Update' : 'Add'}
             </button>

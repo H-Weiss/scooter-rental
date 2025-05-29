@@ -136,26 +136,36 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
   const rentalDetails = calculateRentalDetails()
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative z-60">
-        <h3 className="text-lg font-medium mb-6">
-          {isEditing ? 'Edit Rental' : 'New Rental'}
-        </h3>
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-4xl max-h-[95vh] overflow-y-auto shadow-2xl relative z-60">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-medium">
+            {isEditing ? 'Edit Rental' : 'New Rental'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl sm:hidden"
+          >
+            ×
+          </button>
+        </div>
+        
         {isEditing && (
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 mb-4">
             Order #: {initialData.orderNumber}
           </div>
         )}        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Scooter Selection - רק בהוספה חדשה */}
             {!isEditing && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Scooter</label>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Scooter</label>
                 <select
                   value={formData.scooterId}
                   onChange={(e) => setFormData({ ...formData, scooterId: e.target.value })}
-                  className={`mt-1 block w-full rounded-md shadow-sm ${errors.scooterId ? 'border-red-300' : 'border-gray-300'}`}
+                  className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.scooterId ? 'border-red-300' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Select a scooter</option>
@@ -170,64 +180,64 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 )}
               </div>
             )}
-
+  
             {/* Customer Details - לא ניתנים לעריכה בעריכה */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Customer Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
               <input
                 type="text"
                 value={formData.customerName}
                 onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
                 disabled={isEditing}
                 required
               />
             </div>
-
+  
             <div>
-              <label className="block text-sm font-medium text-gray-700">Passport Number</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Passport Number</label>
               <input
                 type="text"
                 value={formData.passportNumber}
                 onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
                 disabled={isEditing}
                 required
               />
             </div>
-
+  
             {/* Daily Rate - ניתן לעריכה */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Daily Rate (฿)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Daily Rate (฿)</label>
               <input
                 type="number"
                 value={formData.dailyRate}
                 onChange={(e) => setFormData({ ...formData, dailyRate: Number(e.target.value) })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
                 required
               />
             </div>
-
+  
             {/* תאריכים */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
                 disabled={isEditing}
                 required
               />
             </div>
-
+  
             <div>
-              <label className="block text-sm font-medium text-gray-700">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className={`mt-1 block w-full rounded-md shadow-sm ${errors.endDate ? 'border-red-300' : 'border-gray-300'}`}
+                className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.endDate ? 'border-red-300' : 'border-gray-300'}`}
                 min={formData.startDate}
                 required
               />
@@ -235,33 +245,33 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>
               )}
             </div>
-
+  
             {/* Deposit - רק בהוספה חדשה */}
             {!isEditing && (
               <div>
-                <label className="block text-sm font-medium text-gray-700">Deposit Amount (฿)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Deposit Amount (฿)</label>
                 <input
                   type="number"
                   value={formData.deposit}
                   onChange={(e) => setFormData({ ...formData, deposit: Number(e.target.value) })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
                   required
                 />
               </div>
             )}
           </div>
-
+  
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
             />
           </div>
-
+  
           {/* Agreement Checkbox - רק בהשכרה חדשה */}
           {!isEditing && (
             <div className="mt-4">
@@ -277,7 +287,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                   />
                 </div>
                 <div className="ml-3">
-                  <label htmlFor="agreement" className="font-medium text-gray-700">
+                  <label htmlFor="agreement" className="font-medium text-gray-700 text-sm sm:text-base">
                     Signed rental agreement
                   </label>
                   {errors.agreement && (
@@ -287,66 +297,76 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
               </div>
             </div>
           )}
-
+  
           {/* Rental Summary */}
           {rentalDetails && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="font-medium text-gray-900 mb-2">Rental Summary</h4>
-              <div className="space-y-2">
-                <div className="text-sm text-gray-600">
-                  Duration: {rentalDetails.days} days
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="font-medium">{rentalDetails.days} days</span>
                 </div>
                 {isEditing && rentalDetails.daysExtended !== 0 && (
-                  <div className="text-sm text-blue-600">
-                    Extended by: {rentalDetails.daysExtended} days
+                  <div className="flex justify-between text-blue-600">
+                    <span>Extended by:</span>
+                    <span className="font-medium">{rentalDetails.daysExtended} days</span>
                   </div>
                 )}
-                <div className="text-sm text-gray-600">
-                  Base Daily Rate: ฿1,200
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Base Daily Rate:</span>
+                  <span>฿1,200</span>
                 </div>
-                <div className="text-sm text-green-600">
-                  Your Daily Rate: ฿{rentalDetails.dailyRate.toLocaleString()} 
-                  {rentalDetails.dailyRate < 1200 && " (Discount Applied)"}
+                <div className="flex justify-between text-green-600">
+                  <span>Your Daily Rate:</span>
+                  <span className="font-medium">
+                    ฿{rentalDetails.dailyRate.toLocaleString()} 
+                    {rentalDetails.dailyRate < 1200 && " (Discount Applied)"}
+                  </span>
                 </div>
-                <div className="text-sm text-gray-600">
-                  Original Amount: ฿{rentalDetails.originalAmount.toLocaleString()}
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Original Amount:</span>
+                  <span>฿{rentalDetails.originalAmount.toLocaleString()}</span>
                 </div>
                 {rentalDetails.discount > 0 && (
-                  <div className="text-sm text-green-600">
-                    Total Discount: -฿{rentalDetails.discount.toLocaleString()}
+                  <div className="flex justify-between text-green-600">
+                    <span>Total Discount:</span>
+                    <span className="font-medium">-฿{rentalDetails.discount.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="text-lg font-medium text-gray-900">
-                  Final Amount: ฿{rentalDetails.discountedAmount.toLocaleString()}
+                <div className="flex justify-between text-lg font-medium text-gray-900 pt-2 border-t border-gray-200">
+                  <span>Final Amount:</span>
+                  <span>฿{rentalDetails.discountedAmount.toLocaleString()}</span>
                 </div>
                 {!isEditing && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    Deposit Required: ฿{rentalDetails.deposit.toLocaleString()}
+                  <div className="flex justify-between mt-2 text-gray-600">
+                    <span>Deposit Required:</span>
+                    <span className="font-medium">฿{rentalDetails.deposit.toLocaleString()}</span>
                   </div>
                 )}
                 {rentalDetails.days > 5 && (
-                  <div className="mt-2 text-sm text-blue-600">
+                  <div className="mt-2 text-blue-600 text-center">
                     * Long-term rental discount applied
                   </div>
                 )}
               </div>
             </div>
           )}
-
+  
           {/* Buttons */}
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex flex-col sm:flex-row sm:justify-end space-y-3 sm:space-y-0 sm:space-x-3 mt-6 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
             >
               {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Rental'}
             </button>
