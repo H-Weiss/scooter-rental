@@ -136,8 +136,8 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
   const rentalDetails = calculateRentalDetails()
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative z-60">
         <h3 className="text-lg font-medium mb-6">
           {isEditing ? 'Edit Rental' : 'New Rental'}
         </h3>

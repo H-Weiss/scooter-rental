@@ -54,12 +54,18 @@ const ScooterManagement = ({ onUpdate }) => {
     fetchScooters()
   }, [])
 
+
   const handleAdd = async (formData) => {
     try {
+      console.log('=== DEBUG: Adding scooter ===')
+      console.log('Form data received:', formData)
+      
       const newScooter = await addScooter(formData)
+      console.log('New scooter from database:', newScooter)
+      
       setScooters(prev => [...prev, newScooter])
       setShowForm(false)
-      onUpdate?.()  // קריאה עם optional chaining
+      onUpdate?.()
     } catch (error) {
       console.error('Error adding scooter:', error)
       setError('Failed to add scooter')

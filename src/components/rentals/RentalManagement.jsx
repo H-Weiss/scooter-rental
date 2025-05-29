@@ -56,7 +56,7 @@ const RentalManagement = ({ onUpdate }) => {
       const newRental = await addRental({
         ...formData,
         scooterLicense: selectedScooter.licensePlate,
-        scootercolor: selectedScooter.color,
+        scooterColor: selectedScooter.color, // תיקון: שינוי מ-scootercolor ל-scooterColor
         createdAt: new Date().toISOString(),
         status: 'active'
       })
@@ -186,26 +186,36 @@ const RentalManagement = ({ onUpdate }) => {
       return false
     }).length
 
+    const calculateRentalDays = (rental) => {
+      const start = new Date(rental.startDate)
+      let end
+      
+      if (rental.status === 'completed' && rental.completedAt) {
+        end = new Date(rental.completedAt)
+      } else {
+        end = new Date(rental.endDate)
+      }
+      
+      return Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+    }
+
     const totalRevenue = rentals.reduce((sum, rental) => {
       if (rental.paid) {
-        const start = new Date(rental.startDate)
-        const end = rental.completedAt ? new Date(rental.completedAt) : new Date(rental.endDate)
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+        const days = calculateRentalDays(rental)
         return sum + (days * rental.dailyRate)
       }
       return sum
     }, 0)
-
+  
+    // Unpaid Amount - כל ההשכרות שלא שולמו (הסתיימו או לא הסתיימו)
     const unpaidAmount = rentals.reduce((sum, rental) => {
-      if (!rental.paid && rental.status === 'completed') {
-        const start = new Date(rental.startDate)
-        const end = new Date(rental.completedAt || rental.endDate)
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+      if (!rental.paid) {
+        const days = calculateRentalDays(rental)
         return sum + (days * rental.dailyRate)
       }
       return sum
     }, 0)
-
+  
     return {
       activeRentals,
       completedRentals,
@@ -366,7 +376,7 @@ const RentalManagement = ({ onUpdate }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {rental.scooterLicense}
-                    <div className="text-xs text-gray-500">{rental.scootercolor}</div>
+                    <div className="text-xs text-gray-500">{rental.scooterColor}</div>
                   </td>
                   <td className="px-8 py-4 text-base whitespace-nowrap">
                     <div>{rental.customerName}</div>

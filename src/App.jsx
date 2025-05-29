@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bike, Users, Calendar, Wrench, AlertTriangle } from 'lucide-react'
 import './index.css'
 import ScooterManagement from './components/scooters/ScooterManagement'
 import RentalManagement from './components/rentals/RentalManagement'
+import RentalCalendar from './components/calendar/RentalCalendar'
 import { StatisticsProvider, useStatistics } from './context/StatisticsContext'
-import { clearDatabase } from './lib/database'
+import { clearDatabase, getScooters, getRentals } from './lib/database'
 import logo from './assets/logo.jpg'
 
 // Dialog Component for Confirmation
@@ -73,45 +74,148 @@ function Dashboard() {
     }
   ]
 
+  const financialStats = [
+    {
+      id: 'revenue',
+      name: 'Total Revenue',
+      value: statistics.isLoading ? '...' : `฿${statistics.totalRevenue.toLocaleString()}`,
+      icon: ({ className }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+        </svg>
+      ),
+      color: 'text-green-600',
+      bgColor: 'bg-green-50'
+    },
+    {
+      id: 'unpaid',
+      name: 'Unpaid Amount',
+      value: statistics.isLoading ? '...' : `฿${statistics.unpaidAmount.toLocaleString()}`,
+      icon: ({ className }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      color: 'text-red-600',
+      bgColor: 'bg-red-50'
+    }
+  ]
+
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-      {stats.map((stat) => (
-        <div key={stat.id} className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dt className="text-sm font-medium text-gray-500 truncate">
-                  {stat.name}
-                </dt>
-                <dd className="flex items-baseline">
-                  <div className="text-lg font-semibold text-gray-900">
-                    {statistics.isLoading ? (
-                      <div className="animate-pulse bg-gray-200 h-6 w-8 rounded"></div>
-                    ) : (
-                      stat.value
-                    )}
-                  </div>
-                </dd>
+    <div className="space-y-6 mb-6">
+      {/* סטטיסטיקות כלליות */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <div key={stat.id} className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    {stat.name}
+                  </dt>
+                  <dd className="flex items-baseline">
+                    <div className="text-lg font-semibold text-gray-900">
+                      {statistics.isLoading ? (
+                        <div className="animate-pulse bg-gray-200 h-6 w-8 rounded"></div>
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
+                  </dd>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      {/* סטטיסטיקות כספיות */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        {financialStats.map((stat) => (
+          <div key={stat.id} className={`${stat.bgColor} overflow-hidden shadow rounded-lg border-l-4 border-${stat.color.split('-')[1]}-500`}>
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dt className="text-sm font-medium text-gray-600 truncate">
+                    {stat.name}
+                  </dt>
+                  <dd className="flex items-baseline">
+                    <div className={`text-2xl font-bold ${stat.color}`}>
+                      {statistics.isLoading ? (
+                        <div className="animate-pulse bg-gray-200 h-8 w-24 rounded"></div>
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
+                  </dd>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-function ScooterManagementWrapper() {
-  const { refreshStatistics } = useStatistics()
-  return <ScooterManagement onUpdate={refreshStatistics} />
-}
+// Calendar Section Component
+function CalendarSection({ refreshTrigger }) {
+  const [rentals, setRentals] = useState([])
+  const [scooters, setScooters] = useState([])
+  const [showRentalForm, setShowRentalForm] = useState(false)
+  const [selectedRental, setSelectedRental] = useState(null)
+  const [prefilledDate, setPrefilledDate] = useState(null)
 
-function RentalManagementWrapper() {
-  const { refreshStatistics } = useStatistics()
-  return <RentalManagement onUpdate={refreshStatistics} />
+  const loadData = async () => {
+    try {
+      const [rentalsData, scootersData] = await Promise.all([
+        getRentals(),
+        getScooters()
+      ])
+      setRentals(rentalsData)
+      setScooters(scootersData)
+    } catch (error) {
+      console.error('Error loading calendar data:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // רענון כאשר refreshTrigger משתנה
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      loadData()
+    }
+  }, [refreshTrigger])
+
+  const handleNewRental = (dateInfo) => {
+    setPrefilledDate(dateInfo)
+    setShowRentalForm(true)
+  }
+
+  const handleViewRental = (rental) => {
+    setSelectedRental(rental)
+    console.log('View rental:', rental)
+  }
+
+  return (
+    <div className="mb-6">
+      <RentalCalendar
+        rentals={rentals}
+        scooters={scooters}
+        onNewRental={handleNewRental}
+        onViewRental={handleViewRental}
+      />
+    </div>
+  )
 }
 
 function App() {
@@ -119,6 +223,7 @@ function App() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [error, setError] = useState(null)
+  const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState(0)
 
   const tabs = [
     { id: 'rentals', name: 'Rentals', icon: Calendar },
@@ -126,6 +231,11 @@ function App() {
     { id: 'customers', name: 'Customers', icon: Users },
     { id: 'maintenance', name: 'Maintenance', icon: Wrench }
   ]
+
+  // פונקציה לרענון לוח השנה
+  const refreshCalendar = () => {
+    setCalendarRefreshTrigger(prev => prev + 1)
+  }
 
   const handleClearDatabase = async () => {
     try {
@@ -140,6 +250,23 @@ function App() {
       setIsClearing(false)
       setShowConfirmDialog(false)
     }
+  }
+
+  // יצירת פונקציות Wrapper בתוך הקומפוננט הראשי
+  const ScooterManagementWrapper = () => {
+    const { refreshStatistics } = useStatistics()
+    return <ScooterManagement onUpdate={() => {
+      refreshStatistics()
+      refreshCalendar()
+    }} />
+  }
+
+  const RentalManagementWrapper = () => {
+    const { refreshStatistics } = useStatistics()
+    return <RentalManagement onUpdate={() => {
+      refreshStatistics()
+      refreshCalendar()
+    }} />
   }
 
   return (
@@ -187,6 +314,9 @@ function App() {
         <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           {/* Dashboard Stats */}
           <Dashboard />
+
+          {/* Calendar Section */}
+          <CalendarSection refreshTrigger={calendarRefreshTrigger} />
 
           {/* Navigation */}
           <div className="bg-white shadow mb-6">
