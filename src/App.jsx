@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bike, Users, Calendar, Wrench, AlertTriangle } from 'lucide-react'
+import { Bike, Users, Calendar, Wrench } from 'lucide-react'
 import './index.css'
 import ScooterManagement from './components/scooters/ScooterManagement'
 import RentalManagement from './components/rentals/RentalManagement'
@@ -8,7 +8,7 @@ import Header from './components/Header'
 import LoginPage from './components/LoginPage'
 import { StatisticsProvider, useStatistics } from './context/StatisticsContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { clearDatabase, getScooters, getRentals } from './lib/database'
+import { getScooters, getRentals } from './lib/database'
 
 // Loading Screen Component
 function LoadingScreen() {
@@ -17,37 +17,6 @@ function LoadingScreen() {
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
         <p className="text-gray-600">Loading application...</p>
-      </div>
-    </div>
-  )
-}
-
-// Dialog Component for Confirmation
-function ConfirmDialog({ isOpen, onClose, onConfirm, title, message }) {
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg max-w-sm w-full">
-        <div className="flex items-center mb-4">
-          <AlertTriangle className="h-6 w-6 text-red-500 mr-2" />
-          <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-        </div>
-        <p className="text-sm text-gray-500 mb-4">{message}</p>
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
-          >
-            Delete All Data
-          </button>
-        </div>
       </div>
     </div>
   )
@@ -235,9 +204,6 @@ function CalendarSection({ refreshTrigger }) {
 // Main App Component (Protected)
 function MainApp() {
   const [activeTab, setActiveTab] = useState('rentals')
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [isClearing, setIsClearing] = useState(false)
-  const [error, setError] = useState(null)
   const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState(0)
 
   const tabs = [
@@ -250,21 +216,6 @@ function MainApp() {
   // פונקציה לרענון לוח השנה
   const refreshCalendar = () => {
     setCalendarRefreshTrigger(prev => prev + 1)
-  }
-
-  const handleClearDatabase = async () => {
-    try {
-      setIsClearing(true)
-      await clearDatabase()
-      // רענון הדף אחרי מחיקת הנתונים
-      window.location.reload()
-    } catch (error) {
-      console.error('Error clearing database:', error)
-      setError('Failed to clear database')
-    } finally {
-      setIsClearing(false)
-      setShowConfirmDialog(false)
-    }
   }
 
   // יצירת פונקציות Wrapper בתוך הקומפוננט הראשי
@@ -286,27 +237,8 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <Header 
-        onClearDatabase={() => setShowConfirmDialog(true)}
-        isClearing={isClearing}
-      />
-
-      {/* Error Message */}
-      {error && (
-        <div className="w-full py-4 sm:py-8 px-4 sm:px-8">
-          <div className="bg-red-50 border-l-4 border-red-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Header - ללא כפתור מחיקה */}
+      <Header />
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         {/* Dashboard Stats */}
@@ -356,15 +288,6 @@ function MainApp() {
           )}
         </div>
       </main>
-
-      {/* Confirm Dialog */}
-      <ConfirmDialog
-        isOpen={showConfirmDialog}
-        onClose={() => setShowConfirmDialog(false)}
-        onConfirm={handleClearDatabase}
-        title="Clear All Data"
-        message="Are you sure you want to delete all data? This action cannot be undone."
-      />
     </div>
   )
 }

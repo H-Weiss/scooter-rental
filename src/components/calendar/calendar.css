@@ -1,251 +1,315 @@
-/* Custom styles for react-big-calendar - מותאם למובייל */
+/* Custom styles for react-big-calendar - מותאם למובייל עם תיקון גובה */
 
 .rbc-calendar {
-    font-family: inherit;
-    min-height: 400px;
+  font-family: inherit;
+  min-height: 400px;
+  max-height: 500px; /* הגבלת גובה מקסימלי */
+  height: 450px; /* גובה קבוע */
+  overflow: hidden; /* מניעת גלישה */
+}
+
+.rbc-toolbar {
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  flex-shrink: 0; /* מניעת התכווצות */
+}
+
+.rbc-toolbar button {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  min-width: 44px; /* מינימום גודל למגע */
+}
+
+.rbc-toolbar button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.rbc-toolbar button:active,
+.rbc-toolbar button.rbc-active {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.rbc-toolbar .rbc-toolbar-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0.5rem;
+  text-align: center;
+  min-width: 150px;
+}
+
+.rbc-header {
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.5rem 0.25rem;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  flex-shrink: 0; /* מניעת התכווצות */
+}
+
+.rbc-month-view {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  min-height: 300px;
+  max-height: 350px; /* הגבלת גובה */
+  height: 100%; /* שימוש בכל השטח הזמין */
+  display: flex;
+  flex-direction: column;
+}
+
+.rbc-month-header {
+  flex-shrink: 0; /* מניעת התכווצות */
+}
+
+.rbc-month-row {
+  flex: 1; /* חלוקה שווה של השטח */
+  min-height: 0; /* מאפשר התכווצות אם נדרש */
+  display: flex;
+  flex-direction: column;
+}
+
+.rbc-date-cell {
+  text-align: right;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0; /* מניעת התכווצות */
+}
+
+.rbc-date-cell.rbc-off-range {
+  color: #d1d5db;
+}
+
+.rbc-date-cell.rbc-now {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.rbc-day-bg {
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  min-height: 60px; /* הקטנת גובה מינימלי */
+  max-height: 80px; /* הגבלת גובה מקסימלי */
+  overflow: hidden; /* מניעת גלישת תוכן */
+  flex: 1; /* שימוש בשטח זמין */
+}
+
+.rbc-day-bg:hover {
+  background-color: #fef2f2;
+}
+
+.rbc-day-bg.rbc-selected-cell {
+  background-color: #dbeafe;
+}
+
+.rbc-event {
+  border-radius: 0.25rem;
+  font-size: 0.65rem; /* הקטנת גודל פונט */
+  font-weight: 500;
+  padding: 1px 3px;
+  margin: 1px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  line-height: 1.1; /* הקטנת גובה שורה */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-height: 18px; /* הגבלת גובה אירוע */
+}
+
+.rbc-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.rbc-event.rbc-selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.rbc-show-more {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  font-size: 0.6rem; /* הקטנת גודל פונט */
+  font-weight: 500;
+  border-radius: 0.25rem;
+  padding: 1px 3px;
+  margin: 1px;
+  cursor: pointer;
+  border: 1px solid #d1d5db;
+  max-height: 16px; /* הגבלת גובה */
+}
+
+.rbc-show-more:hover {
+  background-color: #e5e7eb;
+}
+
+/* Week and Day views */
+.rbc-time-view {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  max-height: 400px; /* הגבלת גובה */
+}
+
+.rbc-time-header {
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.rbc-time-content {
+  border-left: 1px solid #e5e7eb;
+  overflow-y: auto; /* גלילה במקרה הצורך */
+  flex: 1;
+}
+
+.rbc-timeslot-group {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.rbc-time-slot {
+  border-top: 1px solid #f9fafb;
+}
+
+.rbc-current-time-indicator {
+  background-color: #ef4444;
+  height: 2px;
+}
+
+/* תיקון עבור תצוגת שבוע ויום */
+.rbc-time-view .rbc-time-content {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .rbc-calendar {
+    min-height: 300px;
+    max-height: 400px; /* הקטנת גובה במובייל */
+    height: 350px;
   }
   
   .rbc-toolbar {
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     gap: 0.5rem;
-    padding: 0 0.5rem;
   }
   
-  .rbc-toolbar button {
-    border: 1px solid #d1d5db;
-    background: white;
-    color: #374151;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-    min-width: 44px; /* מינימום גודל למגע */
+  .rbc-toolbar .rbc-btn-group {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
   }
   
-  .rbc-toolbar button:hover {
-    background-color: #f3f4f6;
-    border-color: #9ca3af;
-  }
-  
-  .rbc-toolbar button:active,
-  .rbc-toolbar button.rbc-active {
-    background-color: #3b82f6;
-    border-color: #3b82f6;
-    color: white;
+  .rbc-toolbar .rbc-btn-group button {
+    flex: 1;
+    margin: 0 2px;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
   }
   
   .rbc-toolbar .rbc-toolbar-label {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #111827;
-    margin: 0 0.5rem;
     text-align: center;
-    min-width: 150px;
+    margin: 0.5rem 0;
+    font-size: 0.875rem;
+    min-width: auto;
   }
   
   .rbc-header {
-    background-color: #f9fafb;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 0.5rem 0.25rem;
-    font-weight: 600;
-    color: #374151;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    text-align: center;
-  }
-  
-  .rbc-month-view {
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    min-height: 400px;
-  }
-  
-  .rbc-date-cell {
-    text-align: right;
-    padding: 0.25rem;
-    font-size: 0.75rem;
-    color: #6b7280;
-  }
-  
-  .rbc-date-cell.rbc-off-range {
-    color: #d1d5db;
-  }
-  
-  .rbc-date-cell.rbc-now {
-    font-weight: 600;
-    color: #3b82f6;
-  }
-  
-  .rbc-day-bg {
-    border-right: 1px solid #e5e7eb;
-    border-bottom: 1px solid #e5e7eb;
-    min-height: 80px;
-  }
-  
-  .rbc-day-bg:hover {
-    background-color: #fef2f2;
-  }
-  
-  .rbc-day-bg.rbc-selected-cell {
-    background-color: #dbeafe;
+    padding: 0.5rem 0.125rem;
+    font-size: 0.625rem;
   }
   
   .rbc-event {
-    border-radius: 0.25rem;
-    font-size: 0.7rem;
-    font-weight: 500;
-    padding: 1px 3px;
-    margin: 1px;
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-    line-height: 1.2;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 0.55rem; /* הקטנת גודל פונט במובייל */
+    padding: 1px 2px;
+    line-height: 1.0;
+    max-height: 16px; /* הקטנת גובה במובייל */
   }
   
-  .rbc-event:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  .rbc-date-cell {
+    padding: 0.125rem;
+    font-size: 0.625rem;
   }
   
-  .rbc-event.rbc-selected {
-    outline: 2px solid #3b82f6;
-    outline-offset: 1px;
+  .rbc-day-bg {
+    min-height: 45px; /* הקטנת גובה במובייל */
+    max-height: 60px;
+  }
+  
+  .rbc-month-view {
+    min-height: 250px;
+    max-height: 300px; /* הקטנת גובה במובייל */
   }
   
   .rbc-show-more {
-    background-color: #f3f4f6;
-    color: #6b7280;
-    font-size: 0.7rem;
-    font-weight: 500;
-    border-radius: 0.25rem;
-    padding: 1px 3px;
-    margin: 1px;
-    cursor: pointer;
-    border: 1px solid #d1d5db;
+    font-size: 0.55rem;
+    max-height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rbc-calendar {
+    min-height: 250px;
+    max-height: 350px; /* הקטנת גובה במסכים קטנים */
+    height: 300px;
   }
   
-  .rbc-show-more:hover {
-    background-color: #e5e7eb;
+  .rbc-toolbar .rbc-btn-group button {
+    padding: 0.25rem 0.125rem;
+    font-size: 0.625rem;
   }
   
-  /* Week and Day views */
-  .rbc-time-view {
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    overflow: hidden;
+  .rbc-toolbar .rbc-toolbar-label {
+    font-size: 0.75rem;
   }
   
-  .rbc-time-header {
-    border-bottom: 1px solid #e5e7eb;
+  .rbc-event {
+    font-size: 0.5rem; /* הקטנת גודל פונט במסכים קטנים */
+    padding: 0px 1px;
+    max-height: 14px;
   }
   
-  .rbc-time-content {
-    border-left: 1px solid #e5e7eb;
+  .rbc-header {
+    font-size: 0.5rem;
+    padding: 0.25rem 0.125rem;
   }
   
-  .rbc-timeslot-group {
-    border-bottom: 1px solid #f3f4f6;
+  .rbc-day-bg {
+    min-height: 35px; /* הקטנת גובה במסכים קטנים */
+    max-height: 50px;
   }
   
-  .rbc-time-slot {
-    border-top: 1px solid #f9fafb;
+  .rbc-date-cell {
+    font-size: 0.5rem;
+    padding: 0.125rem;
   }
   
-  .rbc-current-time-indicator {
-    background-color: #ef4444;
-    height: 2px;
+  .rbc-month-view {
+    min-height: 200px;
+    max-height: 250px;
   }
   
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .rbc-toolbar {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.5rem;
-    }
-    
-    .rbc-toolbar .rbc-btn-group {
-      display: flex;
-      justify-content: space-between;
-      width: 100%;
-    }
-    
-    .rbc-toolbar .rbc-btn-group button {
-      flex: 1;
-      margin: 0 2px;
-      padding: 0.5rem 0.25rem;
-      font-size: 0.75rem;
-    }
-    
-    .rbc-toolbar .rbc-toolbar-label {
-      text-align: center;
-      margin: 0.5rem 0;
-      font-size: 0.875rem;
-      min-width: auto;
-    }
-    
-    .rbc-header {
-      padding: 0.5rem 0.125rem;
-      font-size: 0.625rem;
-    }
-    
-    .rbc-event {
-      font-size: 0.6rem;
-      padding: 1px 2px;
-      line-height: 1.1;
-    }
-    
-    .rbc-date-cell {
-      padding: 0.125rem;
-      font-size: 0.625rem;
-    }
-    
-    .rbc-day-bg {
-      min-height: 60px;
-    }
-    
-    .rbc-calendar {
-      min-height: 300px;
-    }
-    
-    .rbc-month-view {
-      min-height: 300px;
-    }
+  .rbc-show-more {
+    font-size: 0.5rem;
+    max-height: 12px;
   }
-  
-  @media (max-width: 480px) {
-    .rbc-toolbar .rbc-btn-group button {
-      padding: 0.25rem 0.125rem;
-      font-size: 0.625rem;
-    }
-    
-    .rbc-toolbar .rbc-toolbar-label {
-      font-size: 0.75rem;
-    }
-    
-    .rbc-event {
-      font-size: 0.55rem;
-      padding: 0px 1px;
-    }
-    
-    .rbc-header {
-      font-size: 0.5rem;
-      padding: 0.25rem 0.125rem;
-    }
-    
-    .rbc-day-bg {
-      min-height: 50px;
-    }
-    
-    .rbc-date-cell {
-      font-size: 0.5rem;
-      padding: 0.125rem;
-    }
-  }
+}

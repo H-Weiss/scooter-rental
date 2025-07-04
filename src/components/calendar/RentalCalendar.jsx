@@ -183,7 +183,7 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-6">
+    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-6 mb-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-4">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Rental Calendar</h2>
         
@@ -217,8 +217,13 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
         </div>
       </div>
   
-      {/* Calendar */}
-      <div className="calendar-container" style={{ height: 'clamp(300px, 50vh, 600px)' }}>
+      {/* Calendar Container - עם הגבלת גובה */}
+      <div className="calendar-container" style={{ 
+        height: window.innerWidth < 768 ? '350px' : '450px',
+        maxHeight: window.innerWidth < 768 ? '350px' : '450px',
+        overflow: 'hidden',
+        marginBottom: '2rem' // מרווח תחתון לוודא שלא נגע בתפריט
+      }}>
         <Calendar
           localizer={localizer}
           events={events}
@@ -234,6 +239,11 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
           defaultView="month"
           step={60}
           showMultiDayTimes
+          style={{ 
+            height: '100%', 
+            maxHeight: '100%',
+            overflow: 'hidden'
+          }}
           components={{
             event: ({ event }) => (
               <div className="flex items-center justify-between text-xs overflow-hidden">

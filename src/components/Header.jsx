@@ -36,7 +36,7 @@ function LogoutDialog({ isOpen, onClose, onConfirm }) {
   )
 }
 
-const Header = ({ onClearDatabase, isClearing }) => {
+const Header = () => {
   const { user, logout } = useAuth()
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
 
@@ -50,7 +50,7 @@ const Header = ({ onClearDatabase, isClearing }) => {
       <header className="bg-white shadow">
         <div className="w-full py-4 px-4 sm:px-8">
           {/* Main Header Row */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4 sm:mb-0">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <img 
                 src={logo} 
@@ -88,17 +88,6 @@ const Header = ({ onClearDatabase, isClearing }) => {
                 <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
-          </div>
-
-          {/* Clear Data Button Row */}
-          <div className="flex justify-end">
-            <button
-              onClick={onClearDatabase}
-              className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
-              disabled={isClearing}
-            >
-              {isClearing ? 'Clearing...' : 'Clear All Data'}
-            </button>
           </div>
         </div>
       </header>
