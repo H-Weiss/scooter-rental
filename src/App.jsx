@@ -92,24 +92,38 @@ function Dashboard() {
   )
 }
 
-// Calendar Section Component
+// Calendar Section Component - תיקון העברת הנתונים
 function CalendarSection({ refreshTrigger }) {
   const [rentals, setRentals] = useState([])
   const [scooters, setScooters] = useState([])
   const [showRentalForm, setShowRentalForm] = useState(false)
   const [selectedRental, setSelectedRental] = useState(null)
   const [prefilledDate, setPrefilledDate] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const loadData = async () => {
     try {
+      setIsLoading(true)
+      setError(null)
+      
+      console.log('=== CalendarSection: Loading data ===')
+      
       const [rentalsData, scootersData] = await Promise.all([
         getRentals(),
         getScooters()
       ])
-      setRentals(rentalsData)
-      setScooters(scootersData)
+      
+      console.log('CalendarSection: Rentals loaded:', rentalsData)
+      console.log('CalendarSection: Scooters loaded:', scootersData)
+      
+      setRentals(rentalsData || [])
+      setScooters(scootersData || [])
     } catch (error) {
       console.error('Error loading calendar data:', error)
+      setError('Failed to load calendar data')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -120,6 +134,7 @@ function CalendarSection({ refreshTrigger }) {
   // רענון כאשר refreshTrigger משתנה
   useEffect(() => {
     if (refreshTrigger > 0) {
+      console.log('CalendarSection: Refresh triggered')
       loadData()
     }
   }, [refreshTrigger])
@@ -132,6 +147,33 @@ function CalendarSection({ refreshTrigger }) {
   const handleViewRental = (rental) => {
     setSelectedRental(rental)
     console.log('View rental:', rental)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="mb-6 bg-white rounded-lg shadow-lg p-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading calendar...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="mb-6 bg-white rounded-lg shadow-lg p-6">
+        <div className="text-center text-red-600">
+          <p>Error: {error}</p>
+          <button 
+            onClick={loadData}
+            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
