@@ -1,15 +1,68 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
-import { Plus, Eye, DollarSign, Clock } from 'lucide-react'
+import { Plus, Eye, DollarSign, Clock, Calendar as CalendarIcon } from 'lucide-react'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import './calendar.css'
 
+// Fix moment locale and localizer initialization
+moment.locale('en')
 const localizer = momentLocalizer(moment)
 
-const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
+// Define custom formats to prevent the formats error
+const customFormats = {
+  dateFormat: 'DD',
+  dayFormat: (date, culture, localizer) => 
+    localizer.format(date, 'DD', culture),
+  dayHeaderFormat: (date, culture, localizer) =>
+    window.innerWidth < 768 
+      ? localizer.format(date, 'dd', culture)
+      : localizer.format(date, 'dddd M/D', culture),
+  dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
+    window.innerWidth < 768
+      ? `${localizer.format(start, 'M/D', culture)} - ${localizer.format(end, 'M/D', culture)}`
+      : `${localizer.format(start, 'MMMM DD', culture)} - ${localizer.format(end, 'MMMM DD', culture)}`,
+  monthHeaderFormat: (date, culture, localizer) => 
+    localizer.format(date, 'MMMM YYYY', culture),
+  weekdayFormat: (date, culture, localizer) => 
+    localizer.format(date, 'dddd', culture),
+  timeGutterFormat: (date, culture, localizer) => 
+    localizer.format(date, 'HH:mm', culture),
+  eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
+    `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`
+}
+
+const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental }) => {
   const [selectedDate, setSelectedDate] = useState(null)
   const [showDayDetails, setShowDayDetails] = useState(false)
+
+  // Debug logs להבנת המידע שמגיע
+  useEffect(() => {
+    console.log('=== RentalCalendar Debug ===')
+    console.log('Rentals received:', rentals)
+    console.log('Scooters received:', scooters)
+    console.log('Rentals count:', rentals?.length || 0)
+    console.log('Scooters count:', scooters?.length || 0)
+    console.log('Rentals type:', Array.isArray(rentals))
+    console.log('Scooters type:', Array.isArray(scooters))
+  }, [rentals, scooters])
+
+  // Guard against invalid data
+  const validRentals = useMemo(() => {
+    if (!Array.isArray(rentals)) {
+      console.warn('Rentals is not an array:', rentals)
+      return []
+    }
+    return rentals
+  }, [rentals])
+
+  const validScooters = useMemo(() => {
+    if (!Array.isArray(scooters)) {
+      console.warn('Scooters is not an array:', scooters)
+      return []
+    }
+    return scooters
+  }, [scooters])
 
   // מיפוי צבעי CSS לצבעי האופנועים
   const colorMapping = {
@@ -49,16 +102,6 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
     'maroon': '#7C2D12',
     'gold': '#F59E0B',
     'silver': '#9CA3AF',
-    
-    // צבעים בתאילנדית (אם רלוונטי)
-    'แดง': '#EF4444', // אדום
-    'น้ำเงิน': '#3B82F6', // כחול
-    'เขียว': '#10B981', // ירוק
-    'เหลือง': '#F59E0B', // צהוב  
-    'ม่วง': '#8B5CF6', // סגול
-    'ส้ม': '#F97316', // כתום
-    'ดำ': '#374151', // שחור
-    'ขาว': '#6B7280', // לבן
   }
 
   // פונקציה לקבלת צבע עבור אופנוע
@@ -102,39 +145,95 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
   // Generate colors for scooters based on their color field
   const scooterColors = useMemo(() => {
     const colorMap = {}
-    scooters.forEach((scooter) => {
-      colorMap[scooter.id] = getScooterColor(scooter)
-    })
+    if (validScooters && Array.isArray(validScooters)) {
+      validScooters.forEach((scooter) => {
+        colorMap[scooter.id] = getScooterColor(scooter)
+      })
+    }
     return colorMap
-  }, [scooters])
+  }, [validScooters])
 
   // Convert rentals to calendar events
   const events = useMemo(() => {
-    return rentals.map(rental => {
-      const scooter = scooters.find(s => s.id === rental.scooterId)
+    console.log('=== Converting rentals to events ===')
+    
+    if (!validRentals || validRentals.length === 0) {
+      console.log('No rentals to convert')
+      return []
+    }
+
+    if (!validScooters || validScooters.length === 0) {
+      console.log('No scooters available')
+      return []
+    }
+
+    const calendarEvents = validRentals.map(rental => {
+      console.log('Processing rental:', rental)
+      
+      // מציאת האופנוע המתאים
+      const scooter = validScooters.find(s => s.id === rental.scooterId)
       const baseColor = scooterColors[rental.scooterId] || '#6B7280'
       
-      // יצירת תאריכים עם שעות
-      const startDateTime = new Date(`${rental.startDate}T${rental.startTime || '09:00'}:00`)
-      const endDateTime = new Date(`${rental.endDate}T${rental.endTime || '18:00'}:00`)
+      // בדיקת תקינות התאריכים
+      if (!rental.startDate || !rental.endDate) {
+        console.warn('Missing dates in rental:', rental)
+        return null
+      }
+
+      // יצירת תאריכים - גישה פשוטה ללא שעות
+      let startDateTime, endDateTime
       
-      return {
+      try {
+        // פשוט נשתמש בתאריכים בלבד עם שעה ברירת מחדל
+        const startDateOnly = rental.startDate.split('T')[0] // לקחת רק את התאריך
+        const endDateOnly = rental.endDate.split('T')[0]     // לקחת רק את התאריך
+        
+        // יצירת תאריכים עם שעות ברירת מחדל (9:00 ו-18:00)
+        startDateTime = new Date(`${startDateOnly}T09:00:00`)
+        endDateTime = new Date(`${endDateOnly}T18:00:00`)
+
+        // בדיקה שהתאריכים תקינים
+        if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+          console.error('Invalid dates for rental:', rental)
+          return null
+        }
+
+        console.log('Created valid dates:', { 
+          start: startDateTime, 
+          end: endDateTime,
+          startDateOnly,
+          endDateOnly
+        })
+
+      } catch (error) {
+        console.error('Error parsing dates for rental:', rental, error)
+        return null
+      }
+      
+      const event = {
         id: rental.id,
-        title: `${rental.scooterLicense} - ${rental.customerName}`,
+        title: `${rental.scooterLicense || 'Unknown'} - ${rental.customerName}`,
         start: startDateTime,
         end: endDateTime,
+        allDay: false, // לא אירוע של כל היום
         resource: {
           rental,
           scooter,
           color: baseColor,
-          isPaid: rental.paid,
+          isPaid: rental.paid || false,
           isActive: rental.status === 'active',
           startTime: rental.startTime || '09:00',
           endTime: rental.endTime || '18:00'
         }
       }
-    })
-  }, [rentals, scooters, scooterColors])
+
+      console.log('Created event:', event)
+      return event
+    }).filter(event => event !== null) // סינון אירועים שנכשלו
+
+    console.log('Final events:', calendarEvents)
+    return calendarEvents
+  }, [validRentals, validScooters, scooterColors])
 
   // Custom event style
   const eventStyleGetter = (event) => {
@@ -188,10 +287,18 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
     }
   }
 
+  // Debug render
+  console.log('=== Rendering Calendar ===')
+  console.log('Events to display:', events.length)
+  console.log('Valid Scooters available:', validScooters?.length || 0)
+  console.log('Valid Rentals available:', validRentals?.length || 0)
+
   return (
     <div className="bg-white rounded-lg shadow-lg p-3 sm:p-6 mb-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 gap-4">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Rental Calendar</h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+          Rental Calendar ({events.length} rentals)
+        </h2>
         
         {/* Legend */}
         <div className="flex items-center space-x-4 text-xs sm:text-sm">
@@ -207,28 +314,30 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
       </div>
   
       {/* Scooter Legend - מותאם למובייל */}
-      <div className="mb-4">
-        <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Scooters:</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-          {scooters.map(scooter => (
-            <div key={scooter.id} className="flex items-center space-x-2 text-xs sm:text-sm bg-gray-50 px-2 py-1 rounded-full">
-              <div 
-                className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-gray-300 flex-shrink-0" 
-                style={{ backgroundColor: scooterColors[scooter.id] }}
-              ></div>
-              <span className="font-medium truncate">{scooter.licensePlate}</span>
-              <span className="text-gray-500 truncate">({scooter.color})</span>
-            </div>
-          ))}
+      {validScooters && validScooters.length > 0 && (
+        <div className="mb-4">
+          <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Scooters:</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+            {validScooters.map(scooter => (
+              <div key={scooter.id} className="flex items-center space-x-2 text-xs sm:text-sm bg-gray-50 px-2 py-1 rounded-full">
+                <div 
+                  className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-gray-300 flex-shrink-0" 
+                  style={{ backgroundColor: scooterColors[scooter.id] }}
+                ></div>
+                <span className="font-medium truncate">{scooter.licensePlate}</span>
+                <span className="text-gray-500 truncate">({scooter.color})</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
   
       {/* Calendar Container - עם הגבלת גובה */}
       <div className="calendar-container" style={{ 
         height: window.innerWidth < 768 ? '350px' : '450px',
         maxHeight: window.innerWidth < 768 ? '350px' : '450px',
         overflow: 'hidden',
-        marginBottom: '2rem' // מרווח תחתון לוודא שלא נגע בתפריט
+        marginBottom: '2rem'
       }}>
         <Calendar
           localizer={localizer}
@@ -245,6 +354,7 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
           defaultView="month"
           step={60}
           showMultiDayTimes
+          formats={customFormats}
           style={{ 
             height: '100%', 
             maxHeight: '100%',
@@ -265,20 +375,17 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
               </div>
             )
           }}
-          formats={{
-            dayHeaderFormat: (date, culture, localizer) =>
-              window.innerWidth < 768 
-                ? localizer.format(date, 'dd', culture)
-                : localizer.format(date, 'dddd M/D', culture),
-            dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
-              window.innerWidth < 768
-                ? `${localizer.format(start, 'M/D', culture)} - ${localizer.format(end, 'M/D', culture)}`
-                : `${localizer.format(start, 'MMMM DD', culture)} - ${localizer.format(end, 'MMMM DD', culture)}`,
-            eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
-              `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`
-          }}
         />
       </div>
+
+      {/* Empty State */}
+      {events.length === 0 && (
+        <div className="text-center py-8 text-gray-500">
+          <CalendarIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <p>No rentals to display</p>
+          <p className="text-sm">Create a new rental to see it on the calendar</p>
+        </div>
+      )}
   
       {/* Day Details Modal */}
       {showDayDetails && selectedDate && (
@@ -341,7 +448,6 @@ const DayDetailsModal = ({ date, rentals, onClose, onViewRental, onNewRental }) 
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex items-start space-x-3 flex-1 min-w-0">
-                      {/* נקודת צבע של האופנוע */}
                       <div 
                         className="w-4 h-4 rounded-full border border-gray-300 mt-0.5 flex-shrink-0" 
                         style={{ backgroundColor: event.resource.color }}
