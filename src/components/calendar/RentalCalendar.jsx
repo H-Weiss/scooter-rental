@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
-import { Plus, Eye, DollarSign } from 'lucide-react'
+import { Plus, Eye, DollarSign, Clock } from 'lucide-react'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import './calendar.css'
 
@@ -114,17 +114,23 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
       const scooter = scooters.find(s => s.id === rental.scooterId)
       const baseColor = scooterColors[rental.scooterId] || '#6B7280'
       
+      // יצירת תאריכים עם שעות
+      const startDateTime = new Date(`${rental.startDate}T${rental.startTime || '09:00'}:00`)
+      const endDateTime = new Date(`${rental.endDate}T${rental.endTime || '18:00'}:00`)
+      
       return {
         id: rental.id,
         title: `${rental.scooterLicense} - ${rental.customerName}`,
-        start: new Date(rental.startDate),
-        end: new Date(rental.endDate),
+        start: startDateTime,
+        end: endDateTime,
         resource: {
           rental,
           scooter,
           color: baseColor,
           isPaid: rental.paid,
-          isActive: rental.status === 'active'
+          isActive: rental.status === 'active',
+          startTime: rental.startTime || '09:00',
+          endTime: rental.endTime || '18:00'
         }
       }
     })
@@ -248,11 +254,14 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
             event: ({ event }) => (
               <div className="flex items-center justify-between text-xs overflow-hidden">
                 <span className="truncate flex-1 mr-1">{event.title}</span>
-                {event.resource.isPaid ? (
-                  <DollarSign className="w-2 h-2 sm:w-3 sm:h-3 flex-shrink-0" />
-                ) : (
-                  <span className="text-red-200 flex-shrink-0">!</span>
-                )}
+                <div className="flex items-center space-x-1 flex-shrink-0">
+                  <Clock className="w-2 h-2" />
+                  {event.resource.isPaid ? (
+                    <DollarSign className="w-2 h-2 sm:w-3 sm:h-3" />
+                  ) : (
+                    <span className="text-red-200">!</span>
+                  )}
+                </div>
               </div>
             )
           }}
@@ -264,7 +273,9 @@ const RentalCalendar = ({ rentals, scooters, onNewRental, onViewRental }) => {
             dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
               window.innerWidth < 768
                 ? `${localizer.format(start, 'M/D', culture)} - ${localizer.format(end, 'M/D', culture)}`
-                : `${localizer.format(start, 'MMMM DD', culture)} - ${localizer.format(end, 'MMMM DD', culture)}`
+                : `${localizer.format(start, 'MMMM DD', culture)} - ${localizer.format(end, 'MMMM DD', culture)}`,
+            eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
+              `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`
           }}
         />
       </div>
@@ -342,9 +353,18 @@ const DayDetailsModal = ({ date, rentals, onClose, onViewRental, onNewRental }) 
                         <div className="text-sm text-gray-600 truncate">
                           {rental.customerName}
                         </div>
+                        <div className="text-xs text-gray-500 flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {rental.startTime} - {rental.endTime}
+                        </div>
                         <div className="text-xs text-gray-500">
                           {moment(rental.startDate).format('MMM D')} - {moment(rental.endDate).format('MMM D')}
                         </div>
+                        {rental.whatsappNumber && (
+                          <div className="text-xs text-blue-600">
+                            WhatsApp: {rental.whatsappCountryCode} {rental.whatsappNumber}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0 ml-2">

@@ -1,118 +1,226 @@
 import { useEffect, useState } from 'react'
-import { PlusCircle, Pencil, Trash2 } from 'lucide-react'
-import ScooterForm from './ScooterForm'
-import { getScooters, addScooter, updateScooter, deleteScooter } from '../../lib/database'
+import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon } from 'lucide-react'
+import RentalForm from '../rentals/RentalForm'
+import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
 
-const ScooterManagement = ({ onUpdate }) => {
-  const [scooters, setScooters] = useState([])
+const RentalManagement = ({ onUpdate }) => {
+  const [rentals, setRentals] = useState([])
+  const [availableScooters, setAvailableScooters] = useState([])
   const [showForm, setShowForm] = useState(false)
-  const [editingScooter, setEditingScooter] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [activeTab, setActiveTab] = useState('active')
+  const [editingRental, setEditingRental] = useState(null)
 
-  const handleUpdateStatus = async (scooter, newStatus) => {
+  const fetchRentals = async () => {
     try {
-      const updatedScooter = await updateScooter({
-        ...scooter,
-        status: newStatus
-      })
-      
-      setScooters(prev => prev.map(s => 
-        s.id === updatedScooter.id ? updatedScooter : s
-      ))
-      onUpdate?.()
+      const data = await getRentals()
+      setRentals(data || [])
+      setError(null)
     } catch (error) {
-      console.error('Error updating scooter:', error)
-      setError('Failed to update scooter')
+      console.error('Error fetching rentals:', error)
+      setError('Failed to load rentals')
     }
   }
 
-  const fetchScooters = async () => {
+  const fetchAvailableScooters = async () => {
     try {
-      setIsLoading(true)
-      const data = await getScooters()
-      const validScooters = data.map(scooter => ({
-        id: scooter.id || '',
-        licensePlate: scooter.licensePlate || '',
-        color: scooter.color || '',
-        year: scooter.year || new Date().getFullYear(),
-        mileage: scooter.mileage || 0,
-        status: scooter.status || 'available'
-      }))
-      setScooters(validScooters)
+      const scooters = await getScooters()
+      const available = scooters.filter(scooter => scooter.status === 'available')
+      setAvailableScooters(available)
       setError(null)
     } catch (error) {
-      console.error('Error fetching scooters:', error)
-      setError('Failed to load scooters')
-    } finally {
-      setIsLoading(false)
+      console.error('Error fetching available scooters:', error)
+      setError('Failed to load available scooters')
     }
   }
 
   useEffect(() => {
-    fetchScooters()
+    const loadData = async () => {
+      setIsLoading(true)
+      await Promise.all([fetchRentals(), fetchAvailableScooters()])
+      setIsLoading(false)
+    }
+    loadData()
   }, [])
 
-  const handleAdd = async (formData) => {
+  const handleCreateRental = async (formData) => {
     try {
-      const newScooter = await addScooter(formData)
-      setScooters(prev => [...prev, newScooter])
+      // מציאת הקטנוע הנבחר
+      const selectedScooter = availableScooters.find(s => s.id === formData.scooterId)
+      if (!selectedScooter) {
+        throw new Error('Selected scooter not found')
+      }
+      
+      // יצירת השכרה חדשה עם כל השדות החדשים
+      const newRental = await addRental({
+        ...formData,
+        scooterLicense: selectedScooter.licensePlate,
+        scooterColor: selectedScooter.color,
+        createdAt: new Date().toISOString(),
+        status: 'active'
+      })
+  
+      // עדכון סטטוס הקטנוע תוך שמירה על כל השדות הקיימים
+      await updateScooter({
+        ...selectedScooter,
+        status: 'rented',
+        lastRentalId: newRental.id
+      })
+      
+      setRentals(prev => [...prev, newRental])
+      await fetchAvailableScooters()
       setShowForm(false)
       onUpdate?.()
     } catch (error) {
-      console.error('Error adding scooter:', error)
-      setError('Failed to add scooter')
+      console.error('Error creating rental:', error)
+      setError('Failed to create rental')
     }
   }
 
-  const handleEdit = (scooter) => {
-    setEditingScooter(scooter)
+  const handleEditRental = async (formData) => {
+    try {
+      const updatedRental = await updateRental({
+        ...editingRental,
+        ...formData,
+        updatedAt: new Date().toISOString()
+      })
+      
+      setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
+      setShowForm(false)
+      setEditingRental(null)
+      onUpdate?.()
+    } catch (error) {
+      console.error('Error updating rental:', error)
+      setError('Failed to update rental')
+    }
+  }
+
+  const handleEdit = (rental) => {
+    setEditingRental(rental)
     setShowForm(true)
   }
 
-  const handleUpdate = async (formData) => {
+  const handleCompleteRental = async (rental) => {
     try {
-      const updatedScooter = await updateScooter({ ...formData, id: editingScooter.id })
-      setScooters(scooters.map(s => (s.id === updatedScooter.id ? updatedScooter : s)))
-      setShowForm(false)
-      setEditingScooter(null)
+      // עדכון השכרה
+      const updatedRental = await updateRental({
+        ...rental,
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      })
+  
+      // קבלת פרטי הקטנוע המלאים לפני העדכון
+      const scooters = await getScooters()
+      const scooter = scooters.find(s => s.id === rental.scooterId)
+      
+      if (!scooter) {
+        throw new Error('Scooter not found')
+      }
+  
+      // עדכון סטטוס הקטנוע תוך שמירה על כל השדות
+      await updateScooter({
+        ...scooter,
+        status: 'available',
+        lastRentalId: null
+      })
+      
+      setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
+      await fetchAvailableScooters()
       onUpdate?.()
     } catch (error) {
-      console.error('Error updating scooter:', error)
-      setError('Failed to update scooter')
+      console.error('Error completing rental:', error)
+      setError('Failed to complete rental')
     }
   }
 
-  const handleDelete = async (scooterId) => {
-    if (window.confirm('Are you sure you want to delete this scooter?')) {
+  const handleDeleteRental = async (rental) => {
+    if (window.confirm(`Are you sure you want to delete rental #${rental.orderNumber}?`)) {
       try {
-        await deleteScooter(scooterId)
-        setScooters(scooters.filter(s => s.id !== scooterId))
+        await deleteRental(rental.id)
+        
+        // אם ההשכרה הייתה פעילה, נשחרר את הקטנוע
+        if (rental.status === 'active') {
+          const scooters = await getScooters()
+          const scooter = scooters.find(s => s.id === rental.scooterId)
+          
+          if (scooter) {
+            await updateScooter({
+              ...scooter,
+              status: 'available'
+            })
+          }
+        }
+        
+        // עדכון הממשק
+        setRentals(prev => prev.filter(r => r.id !== rental.id))
+        await fetchAvailableScooters()
         onUpdate?.()
       } catch (error) {
-        console.error('Error deleting scooter:', error)
-        setError('Failed to delete scooter')
+        console.error('Error deleting rental:', error)
+        setError('Failed to delete rental')
       }
+    }
+  }
+
+  const handleUpdatePaymentStatus = async (rental) => {
+    try {
+      const updatedRental = await updateRental({
+        ...rental,
+        paid: !rental.paid,
+        paidAt: !rental.paid ? new Date().toISOString() : null
+      })
+      
+      setRentals(prev => prev.map(r => r.id === rental.id ? updatedRental : r))
+      setError(null)
+      onUpdate?.()
+    } catch (error) {
+      console.error('Error updating payment status:', error)
+      setError('Failed to update payment status')
+    }
+  }
+
+  const calculateStatistics = () => {
+    const activeRentals = rentals.filter(r => r.status === 'active').length
+    const completedRentals = rentals.filter(r => r.status === 'completed').length
+    const overdueRentals = rentals.filter(r => {
+      if (r.status === 'active') {
+        const endDate = new Date(r.endDate)
+        return endDate < new Date()
+      }
+      return false
+    }).length
+
+    return {
+      activeRentals,
+      completedRentals,
+      overdueRentals
     }
   }
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'available':
+      case 'active':
         return 'bg-green-100 text-green-800'
-      case 'rented':
+      case 'completed':
         return 'bg-blue-100 text-blue-800'
-      case 'maintenance':
-        return 'bg-yellow-100 text-yellow-800'
+      case 'overdue':
+        return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const needsMaintenance = (mileage) => {
-    const safeMillage = Number(mileage) || 0
-    return safeMillage % 10000 >= 9000
-  }
+  // חישוב הסטטיסטיקות - אחרי הגדרת הפונקציות
+  const stats = calculateStatistics()
+
+  // מסנן את ההשכרות לפי הטאב הפעיל
+  const filteredRentals = rentals.filter(rental => {
+    if (activeTab === 'active') {
+      return rental.status === 'active'
+    }
+    return rental.status === 'completed'
+  })
 
   if (isLoading) {
     return (
@@ -124,184 +232,360 @@ const ScooterManagement = ({ onUpdate }) => {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 text-red-700 rounded-lg">
-        {error}
+      <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <XCircle className="h-5 w-5 text-red-400" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header with Add Button */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2 className="text-lg font-medium">Scooter List</h2>
+      {/* Statistics Dashboard */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Active Rentals</h3>
+          <p className="text-2xl font-semibold text-gray-900">{stats.activeRentals}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Completed Rentals</h3>
+          <p className="text-2xl font-semibold text-gray-900">{stats.completedRentals}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Overdue Rentals</h3>
+          <p className="text-2xl font-semibold text-red-600">{stats.overdueRentals}</p>
+        </div>
+      </div>
+
+      {/* Header with Tabs and Add Button */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-gray-200 pb-4">
+        <div className="flex space-x-4">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`py-2 px-4 border-b-2 ${
+              activeTab === 'active'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Active Rentals
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`py-2 px-4 border-b-2 ${
+              activeTab === 'completed'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Completed Rentals
+          </button>
+        </div>
         <button
           onClick={() => {
-            setEditingScooter(null)
+            setEditingRental(null)
             setShowForm(true)
           }}
           className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           <PlusCircle className="h-4 w-4 mr-2" />
-          Add Scooter
+          New Rental
         </button>
       </div>
 
-      {/* Scooters Display */}
-      {scooters.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          No scooters found. Add your first scooter to get started.
+      {/* Rentals Display */}
+      {filteredRentals.length === 0 ? (
+        <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
+          <div className="text-center text-gray-500">
+            {activeTab === 'active' ? 'No active rentals found.' : 'No completed rentals found.'}
+          </div>
         </div>
       ) : (
         <>
           {/* Desktop Table - Hidden on mobile */}
-          <div className="hidden md:block bg-white shadow overflow-hidden sm:rounded-lg">
+          <div className="hidden lg:block bg-white shadow overflow-hidden sm:rounded-lg">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    License Plate
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Order #
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Color
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Scooter
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Year
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mileage (km)
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contact
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Dates & Times
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rental Amount
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {scooters.map((scooter) => (
-                  <tr 
-                    key={scooter.id} 
-                    className={needsMaintenance(scooter.mileage) ? 'bg-red-50' : ''}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {scooter.licensePlate}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {scooter.color}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {scooter.year}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className={needsMaintenance(scooter.mileage) ? 'text-red-600 font-medium' : ''}>
-                        {typeof scooter.mileage === 'number' ? scooter.mileage.toLocaleString() : '0'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(scooter.status)}`}>
-                        {scooter.status ? scooter.status.charAt(0).toUpperCase() + scooter.status.slice(1) : 'Unknown'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                {filteredRentals.map((rental) => {
+                  const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
+                  const displayStatus = isOverdue ? 'overdue' : rental.status
+                  const days = Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))
+                  const totalAmount = rental.dailyRate * days
+
+                  return (
+                    <tr key={rental.id}>
+                      {/* Order Number */}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {rental.orderNumber}
+                      </td>
+                      
+                      {/* Scooter */}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
+                        <div className="text-xs text-gray-500">{rental.scooterColor}</div>
+                      </td>
+                      
+                      {/* Customer */}
+                      <td className="px-4 py-4 text-sm">
+                        <div className="font-medium text-gray-900">{rental.customerName}</div>
+                        <div className="text-xs text-gray-500">{rental.passportNumber}</div>
+                      </td>
+                      
+                      {/* Contact (WhatsApp) */}
+                      <td className="px-4 py-4 text-sm">
+                        {rental.whatsappNumber ? (
+                          <>
+                            <div className="text-xs text-gray-900">
+                              {rental.whatsappCountryCode} {rental.whatsappNumber}
+                            </div>
+                            <div className="text-xs text-gray-500">WhatsApp</div>
+                          </>
+                        ) : (
+                          <div className="text-xs text-gray-400">No WhatsApp</div>
+                        )}
+                      </td>
+                      
+                      {/* Dates & Times */}
+                      <td className="px-4 py-4 text-sm">
+                        <div>{new Date(rental.startDate).toLocaleDateString()} {rental.startTime || '09:00'}</div>
+                        <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
+                      </td>
+                      
+                      {/* Rental Amount */}
+                      <td className="px-4 py-4 text-sm">
+                        <div>฿{rental.dailyRate.toLocaleString()}/day</div>
+                        <div className="text-xs text-gray-500">Total: ฿{totalAmount.toLocaleString()}</div>
+                        <div className="text-xs text-blue-500">Deposit: ฿{(rental.deposit || 4000).toLocaleString()}</div>
+                      </td>
+                      
+                      {/* Status */}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
+                          {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                        </span>
+                      </td>
+                      
+                      {/* Payment Status */}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
                         <button 
-                          onClick={() => handleEdit(scooter)}
-                          className="text-blue-600 hover:text-blue-900"
+                          onClick={() => handleUpdatePaymentStatus(rental)}
+                          className="flex items-center"
+                          title={rental.paid ? 'Mark as Unpaid' : 'Mark as Paid'}
                         >
-                          <Pencil className="h-4 w-4" />
+                          {rental.paid ? (
+                            <span className="text-green-600">
+                              <CheckCircle className="h-5 w-5" />
+                            </span>
+                          ) : (
+                            <span className="text-red-600">
+                              <XCircle className="h-5 w-5" />
+                            </span>
+                          )}
                         </button>
-                        <button 
-                          onClick={() => handleDelete(scooter.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      
+                      {/* Actions */}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button 
+                            className="text-blue-600 hover:text-blue-900"
+                            onClick={() => handleEdit(rental)}
+                            title="Edit Rental"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                          <button 
+                            className="text-red-600 hover:text-red-900"
+                            onClick={() => handleDeleteRental(rental)}
+                            title="Delete Rental"
+                          >
+                            <Trash2Icon className="h-4 w-4" />
+                          </button>
+                          {rental.status === 'active' && (
+                            <button 
+                              className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded"
+                              onClick={() => handleCompleteRental(rental)}
+                              title="Complete Rental"
+                            >
+                              Complete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
 
-          {/* Mobile Cards - Visible only on mobile */}
-          <div className="md:hidden space-y-4">
-            {scooters.map((scooter) => (
-              <div 
-                key={scooter.id} 
-                className={`bg-white shadow rounded-lg p-4 border-l-4 ${
-                  needsMaintenance(scooter.mileage) 
-                    ? 'border-red-500 bg-red-50' 
-                    : getStatusColor(scooter.status).includes('green') 
-                      ? 'border-green-500' 
-                      : getStatusColor(scooter.status).includes('blue')
-                        ? 'border-blue-500'
-                        : 'border-yellow-500'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {scooter.licensePlate}
-                    </h3>
-                    <p className="text-sm text-gray-600">{scooter.color} • {scooter.year}</p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(scooter.status)}`}>
-                    {scooter.status ? scooter.status.charAt(0).toUpperCase() + scooter.status.slice(1) : 'Unknown'}
-                  </span>
-                </div>
-                
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Mileage:</span>
-                    <span className={`font-medium ${needsMaintenance(scooter.mileage) ? 'text-red-600' : 'text-gray-900'}`}>
-                      {typeof scooter.mileage === 'number' ? scooter.mileage.toLocaleString() : '0'} km
-                    </span>
-                  </div>
-                  {needsMaintenance(scooter.mileage) && (
-                    <p className="text-xs text-red-600 mt-1 font-medium">
-                      ⚠️ Maintenance needed soon
-                    </p>
-                  )}
-                </div>
+          {/* Mobile Cards - Visible on mobile and tablet */}
+          <div className="lg:hidden space-y-4">
+            {filteredRentals.map((rental) => {
+              const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
+              const displayStatus = isOverdue ? 'overdue' : rental.status
+              const days = Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))
+              const totalAmount = rental.dailyRate * days
 
-                <div className="flex justify-end space-x-2">
-                  <button 
-                    onClick={() => handleEdit(scooter)}
-                    className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(scooter.id)}
-                    className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </button>
+              return (
+                <div key={rental.id} className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">
+                        #{rental.orderNumber}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {rental.scooterLicense} • {rental.scooterColor}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
+                        {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                      </span>
+                      <button 
+                        onClick={() => handleUpdatePaymentStatus(rental)}
+                        className="p-1"
+                      >
+                        {rental.paid ? (
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-600" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer Info */}
+                  <div className="mb-3 pb-3 border-b border-gray-200">
+                    <h4 className="font-medium text-gray-900">{rental.customerName}</h4>
+                    <p className="text-sm text-gray-500">{rental.passportNumber}</p>
+                    {rental.whatsappNumber && (
+                      <p className="text-sm text-blue-600">
+                        WhatsApp: {rental.whatsappCountryCode} {rental.whatsappNumber}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Rental Details */}
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Start:</span>
+                      <div className="font-medium">{new Date(rental.startDate).toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500">{rental.startTime || '09:00'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">End:</span>
+                      <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Daily Rate:</span>
+                      <div className="font-medium">฿{rental.dailyRate.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Rental Total:</span>
+                      <div className="font-medium text-lg">฿{totalAmount.toLocaleString()}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-gray-500">Deposit:</span>
+                      <div className="font-medium text-blue-600">฿{(rental.deposit || 4000).toLocaleString()}</div>
+                    </div>
+                  </div>
+
+                  {/* Notes if available */}
+                  {rental.notes && (
+                    <div className="mb-3 pb-3 border-b border-gray-200">
+                      <span className="text-gray-500 text-sm">Notes:</span>
+                      <p className="text-sm text-gray-700 mt-1">{rental.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      onClick={() => handleEdit(rental)}
+                      className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      <PencilIcon className="h-4 w-4 mr-1" />
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteRental(rental)}
+                      className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
+                    >
+                      <Trash2Icon className="h-4 w-4 mr-1" />
+                      Delete
+                    </button>
+                    {rental.status === 'active' && (
+                      <button 
+                        onClick={() => handleCompleteRental(rental)}
+                        className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Complete
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </>
       )}
 
-      {/* Add/Edit Form Modal */}
+      {/* Rental Form Modal */}
       {showForm && (
-        <ScooterForm
-          onSubmit={editingScooter ? handleUpdate : handleAdd}
+        <RentalForm
+          onSubmit={editingRental ? handleEditRental : handleCreateRental}
           onClose={() => {
             setShowForm(false)
-            setEditingScooter(null)
+            setEditingRental(null)
           }}
-          initialData={editingScooter}
+          availableScooters={availableScooters}
+          initialData={editingRental}
+          isEditing={!!editingRental}
         />
       )}
     </div>
   )
 }
 
-export default ScooterManagement
+export default RentalManagement

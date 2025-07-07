@@ -7,10 +7,14 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     scooterLicense: '',
     customerName: '',
     passportNumber: '',
+    whatsappCountryCode: '+66', // ברירת מחדל תאילנד
+    whatsappNumber: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
+    startTime: '09:00',
+    endTime: '18:00',
     dailyRate: 1200,
-    deposit: 2000,
+    deposit: 4000, // Deposit קבוע 4000 THB
     notes: '',
     hasSignedAgreement: false
   })
@@ -18,18 +22,109 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [originalEndDate, setOriginalEndDate] = useState(null)
+  const [filteredScooters, setFilteredScooters] = useState([])
+
+  // קידומות מדינות נפוצות
+  const countryCodes = [
+    { code: '+66', country: 'Thailand', flag: '🇹🇭' },
+    { code: '+1', country: 'USA/Canada', flag: '🇺🇸' },
+    { code: '+44', country: 'UK', flag: '🇬🇧' },
+    { code: '+49', country: 'Germany', flag: '🇩🇪' },
+    { code: '+33', country: 'France', flag: '🇫🇷' },
+    { code: '+39', country: 'Italy', flag: '🇮🇹' },
+    { code: '+34', country: 'Spain', flag: '🇪🇸' },
+    { code: '+31', country: 'Netherlands', flag: '🇳🇱' },
+    { code: '+46', country: 'Sweden', flag: '🇸🇪' },
+    { code: '+47', country: 'Norway', flag: '🇳🇴' },
+    { code: '+45', country: 'Denmark', flag: '🇩🇰' },
+    { code: '+41', country: 'Switzerland', flag: '🇨🇭' },
+    { code: '+43', country: 'Austria', flag: '🇦🇹' },
+    { code: '+32', country: 'Belgium', flag: '🇧🇪' },
+    { code: '+61', country: 'Australia', flag: '🇦🇺' },
+    { code: '+64', country: 'New Zealand', flag: '🇳🇿' },
+    { code: '+81', country: 'Japan', flag: '🇯🇵' },
+    { code: '+82', country: 'South Korea', flag: '🇰🇷' },
+    { code: '+86', country: 'China', flag: '🇨🇳' },
+    { code: '+65', country: 'Singapore', flag: '🇸🇬' },
+    { code: '+60', country: 'Malaysia', flag: '🇲🇾' },
+    { code: '+84', country: 'Vietnam', flag: '🇻🇳' },
+    { code: '+62', country: 'Indonesia', flag: '🇮🇩' },
+    { code: '+63', country: 'Philippines', flag: '🇵🇭' },
+    { code: '+91', country: 'India', flag: '🇮🇳' },
+    { code: '+972', country: 'Israel', flag: '🇮🇱' },
+    { code: '+7', country: 'Russia', flag: '🇷🇺' },
+    { code: '+48', country: 'Poland', flag: '🇵🇱' },
+    { code: '+420', country: 'Czech Republic', flag: '🇨🇿' },
+    { code: '+36', country: 'Hungary', flag: '🇭🇺' }
+  ]
+
+  // שעות זמינות (9:00 עד 18:00)
+  const timeOptions = []
+  for (let hour = 9; hour <= 18; hour++) {
+    const timeString = `${hour.toString().padStart(2, '0')}:00`
+    timeOptions.push(timeString)
+  }
 
   useEffect(() => {
     if (initialData) {
       const formattedData = {
         ...initialData,
         startDate: initialData.startDate.split('T')[0],
-        endDate: initialData.endDate.split('T')[0]
+        endDate: initialData.endDate.split('T')[0],
+        whatsappCountryCode: initialData.whatsappCountryCode || '+66',
+        whatsappNumber: initialData.whatsappNumber || '',
+        startTime: initialData.startTime || '09:00',
+        endTime: initialData.endTime || '18:00'
       }
       setFormData(formattedData)
       setOriginalEndDate(formattedData.endDate)
     }
   }, [initialData])
+
+  // פילטור אופנועים זמינים לפי תאריכים
+  useEffect(() => {
+    if (!isEditing && formData.startDate && formData.endDate) {
+      filterAvailableScooters()
+    } else if (!isEditing) {
+      setFilteredScooters(availableScooters || [])
+    }
+  }, [formData.startDate, formData.endDate, availableScooters, isEditing])
+
+  const filterAvailableScooters = async () => {
+    try {
+      // מביא את כל הרנטלים הפעילים
+      const { getRentals } = await import('../../lib/database')
+      const allRentals = await getRentals()
+      
+      const startDate = new Date(formData.startDate)
+      const endDate = new Date(formData.endDate)
+      
+      // מוצא אופנועים שתפוסים בתקופה הנבחרת
+      const occupiedScooterIds = new Set()
+      
+      allRentals.forEach(rental => {
+        if (rental.status === 'active') {
+          const rentalStart = new Date(rental.startDate)
+          const rentalEnd = new Date(rental.endDate)
+          
+          // בדיקה אם יש חפיפה בתאריכים
+          if (startDate <= rentalEnd && endDate >= rentalStart) {
+            occupiedScooterIds.add(rental.scooterId)
+          }
+        }
+      })
+      
+      // סינון אופנועים זמינים
+      const availableForDates = (availableScooters || []).filter(scooter => 
+        !occupiedScooterIds.has(scooter.id)
+      )
+      
+      setFilteredScooters(availableForDates)
+    } catch (error) {
+      console.error('Error filtering scooters:', error)
+      setFilteredScooters(availableScooters || [])
+    }
+  }
 
   const calculateDailyRate = (days) => {
     if (days > 10) return 800
@@ -84,6 +179,12 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
 
     if (!formData.passportNumber.trim()) {
       newErrors.passportNumber = 'Passport number is required'
+    }
+
+    if (!formData.whatsappNumber.trim()) {
+      newErrors.whatsappNumber = 'WhatsApp number is required'
+    } else if (!/^\d+$/.test(formData.whatsappNumber.trim())) {
+      newErrors.whatsappNumber = 'WhatsApp number must contain only digits'
     }
 
     if (!formData.endDate) {
@@ -169,7 +270,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                   required
                 >
                   <option value="">Select a scooter</option>
-                  {availableScooters?.map(scooter => (
+                  {filteredScooters?.map(scooter => (
                     <option key={scooter.id} value={scooter.id}>
                       {scooter.licensePlate} - {scooter.color}
                     </option>
@@ -178,20 +279,26 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 {errors.scooterId && (
                   <p className="mt-1 text-sm text-red-600">{errors.scooterId}</p>
                 )}
+                {formData.startDate && formData.endDate && filteredScooters.length === 0 && (
+                  <p className="mt-1 text-sm text-orange-600">No scooters available for selected dates</p>
+                )}
               </div>
             )}
   
-            {/* Customer Details - לא ניתנים לעריכה בעריכה */}
+            {/* Customer Details */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
               <input
                 type="text"
                 value={formData.customerName}
                 onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
+                className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.customerName ? 'border-red-300' : 'border-gray-300'}`}
                 disabled={isEditing}
                 required
               />
+              {errors.customerName && (
+                <p className="mt-1 text-sm text-red-600">{errors.customerName}</p>
+              )}
             </div>
   
             <div>
@@ -200,13 +307,48 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 type="text"
                 value={formData.passportNumber}
                 onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
+                className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.passportNumber ? 'border-red-300' : 'border-gray-300'}`}
                 disabled={isEditing}
                 required
               />
+              {errors.passportNumber && (
+                <p className="mt-1 text-sm text-red-600">{errors.passportNumber}</p>
+              )}
+            </div>
+
+            {/* WhatsApp Number */}
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number *</label>
+              <div className="flex space-x-2">
+                <select
+                  value={formData.whatsappCountryCode}
+                  onChange={(e) => setFormData({ ...formData, whatsappCountryCode: e.target.value })}
+                  className="block w-1/3 rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
+                  disabled={isEditing}
+                >
+                  {countryCodes.map(country => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code} {country.country}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  value={formData.whatsappNumber}
+                  onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
+                  className={`flex-1 rounded-md shadow-sm text-base px-3 py-2 ${errors.whatsappNumber ? 'border-red-300' : 'border-gray-300'}`}
+                  placeholder="123456789"
+                  disabled={isEditing}
+                  required
+                />
+              </div>
+              {errors.whatsappNumber && (
+                <p className="mt-1 text-sm text-red-600">{errors.whatsappNumber}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">Enter WhatsApp number without country code</p>
             </div>
   
-            {/* Daily Rate - ניתן לעריכה */}
+            {/* Daily Rate */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Daily Rate (฿)</label>
               <input
@@ -217,6 +359,20 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 required
               />
             </div>
+
+            {/* Deposit - רק בהוספה חדשה */}
+            {!isEditing && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Deposit Amount (฿)</label>
+                <input
+                  type="number"
+                  value={formData.deposit}
+                  onChange={(e) => setFormData({ ...formData, deposit: Number(e.target.value) })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
+                  required
+                />
+              </div>
+            )}
   
             {/* תאריכים */}
             <div>
@@ -245,20 +401,36 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>
               )}
             </div>
-  
-            {/* Deposit - רק בהוספה חדשה */}
-            {!isEditing && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Deposit Amount (฿)</label>
-                <input
-                  type="number"
-                  value={formData.deposit}
-                  onChange={(e) => setFormData({ ...formData, deposit: Number(e.target.value) })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
-                  required
-                />
-              </div>
-            )}
+
+            {/* שעות */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Time</label>
+              <select
+                value={formData.startTime}
+                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
+                disabled={isEditing}
+                required
+              >
+                {timeOptions.map(time => (
+                  <option key={time} value={time}>{time}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Return Time</label>
+              <select
+                value={formData.endTime}
+                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
+                required
+              >
+                {timeOptions.map(time => (
+                  <option key={time} value={time}>{time}</option>
+                ))}
+              </select>
+            </div>
           </div>
   
           {/* Notes */}
@@ -283,7 +455,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                     type="checkbox"
                     checked={formData.hasSignedAgreement}
                     onChange={handleAgreementCheck}
-                    className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    className={`focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded ${errors.agreement ? 'border-red-300' : ''}`}
                   />
                 </div>
                 <div className="ml-3">
@@ -306,6 +478,14 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 <div className="flex justify-between">
                   <span className="text-gray-600">Duration:</span>
                   <span className="font-medium">{rentalDetails.days} days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Pickup Time:</span>
+                  <span className="font-medium">{formData.startTime}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Return Time:</span>
+                  <span className="font-medium">{formData.endTime}</span>
                 </div>
                 {isEditing && rentalDetails.daysExtended !== 0 && (
                   <div className="flex justify-between text-blue-600">
@@ -335,12 +515,12 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-medium text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Final Amount:</span>
+                  <span>Rental Total:</span>
                   <span>฿{rentalDetails.discountedAmount.toLocaleString()}</span>
                 </div>
                 {!isEditing && (
-                  <div className="flex justify-between mt-2 text-gray-600">
-                    <span>Deposit Required:</span>
+                  <div className="flex justify-between mt-2 text-gray-600 border-t border-gray-200 pt-2">
+                    <span>Deposit (separate):</span>
                     <span className="font-medium">฿{rentalDetails.deposit.toLocaleString()}</span>
                   </div>
                 )}
@@ -349,6 +529,18 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                     * Long-term rental discount applied
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {errors.submit && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{errors.submit}</p>
+                </div>
               </div>
             </div>
           )}

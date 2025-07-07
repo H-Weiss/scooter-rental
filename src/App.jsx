@@ -6,7 +6,8 @@ import RentalManagement from './components/rentals/RentalManagement'
 import RentalCalendar from './components/calendar/RentalCalendar'
 import Header from './components/Header'
 import LoginPage from './components/LoginPage'
-import { StatisticsProvider, useStatistics } from './context/StatisticsContext'
+import StatisticsProvider from './context/StatisticsProvider'
+import useStatistics from './context/useStatistics'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { getScooters, getRentals } from './lib/database'
 
@@ -57,36 +58,9 @@ function Dashboard() {
     }
   ]
 
-  const financialStats = [
-    {
-      id: 'revenue',
-      name: 'Total Revenue',
-      value: statistics.isLoading ? '...' : `฿${statistics.totalRevenue.toLocaleString()}`,
-      icon: ({ className }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-        </svg>
-      ),
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
-    },
-    {
-      id: 'unpaid',
-      name: 'Unpaid Amount',
-      value: statistics.isLoading ? '...' : `฿${statistics.unpaidAmount.toLocaleString()}`,
-      icon: ({ className }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-      color: 'text-red-600',
-      bgColor: 'bg-red-50'
-    }
-  ]
-
   return (
     <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-6">
-      {/* סטטיסטיקות כלליות */}
+      {/* סטטיסטיקות כלליות - 4 קלפים בלבד */}
       <div className="grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.id} className="bg-white overflow-hidden shadow rounded-lg">
@@ -105,35 +79,6 @@ function Dashboard() {
                         <div className="animate-pulse bg-gray-200 h-4 sm:h-6 w-6 sm:w-8 rounded"></div>
                       ) : (
                         stat.value
-                      )}
-                    </div>
-                  </dd>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* סטטיסטיקות כספיות */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-5 sm:grid-cols-2">
-        {financialStats.map((stat) => (
-          <div key={stat.id} className={`${stat.bgColor} overflow-hidden shadow rounded-lg border-l-4 border-${stat.color.split('-')[1]}-500`}>
-            <div className="p-3 sm:p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <stat.icon className={`h-6 w-6 sm:h-8 sm:w-8 ${stat.color}`} />
-                </div>
-                <div className="ml-3 sm:ml-5 w-0 flex-1">
-                  <dt className="text-xs sm:text-sm font-medium text-gray-600 truncate">
-                    {stat.name}
-                  </dt>
-                  <dd className="flex items-baseline">
-                    <div className={`text-lg sm:text-2xl font-bold ${stat.color}`}>
-                      {statistics.isLoading ? (
-                        <div className="animate-pulse bg-gray-200 h-6 sm:h-8 w-16 sm:w-24 rounded"></div>
-                      ) : (
-                        <span className="break-all">{stat.value}</span>
                       )}
                     </div>
                   </dd>

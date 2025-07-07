@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon } from 'lucide-react'
-import RentalForm from './RentalForm'
+import RentalForm from '../rentals/RentalForm'
 import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
 
 const RentalManagement = ({ onUpdate }) => {
@@ -52,7 +52,7 @@ const RentalManagement = ({ onUpdate }) => {
         throw new Error('Selected scooter not found')
       }
       
-      // יצירת השכרה חדשה
+      // יצירת השכרה חדשה עם כל השדות החדשים
       const newRental = await addRental({
         ...formData,
         scooterLicense: selectedScooter.licensePlate,
@@ -191,44 +191,10 @@ const RentalManagement = ({ onUpdate }) => {
       return false
     }).length
 
-    // חישוב ימים להשכרה
-    const calculateRentalDays = (rental) => {
-      const start = new Date(rental.startDate)
-      let end
-      
-      if (rental.status === 'completed' && rental.completedAt) {
-        end = new Date(rental.completedAt)
-      } else {
-        end = new Date(rental.endDate)
-      }
-      
-      return Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-    }
-
-    // Total Revenue - כל ההזמנות ששולמו
-    const totalRevenue = rentals.reduce((sum, rental) => {
-      if (rental.paid) {
-        const days = calculateRentalDays(rental)
-        return sum + (days * rental.dailyRate)
-      }
-      return sum
-    }, 0)
-
-    // Unpaid Amount - כל ההשכרות שלא שולמו (הסתיימו או לא הסתיימו)
-    const unpaidAmount = rentals.reduce((sum, rental) => {
-      if (!rental.paid) {
-        const days = calculateRentalDays(rental)
-        return sum + (days * rental.dailyRate)
-      }
-      return sum
-    }, 0)
-
     return {
       activeRentals,
       completedRentals,
-      overdueRentals,
-      totalRevenue,
-      unpaidAmount
+      overdueRentals
     }
   }
 
@@ -245,15 +211,16 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
-  // מסנן את ההשכרות לפי הטאב הפעיל
+  // Calculate statistics - moved BEFORE it's used
+  const stats = calculateStatistics()
+
+  // Filter rentals by active tab
   const filteredRentals = rentals.filter(rental => {
     if (activeTab === 'active') {
       return rental.status === 'active'
     }
     return rental.status === 'completed'
   })
-
-  const stats = calculateStatistics()
 
   if (isLoading) {
     return (
@@ -281,7 +248,7 @@ const RentalManagement = ({ onUpdate }) => {
   return (
     <div className="p-4 space-y-4">
       {/* Statistics Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Active Rentals</h3>
           <p className="text-2xl font-semibold text-gray-900">{stats.activeRentals}</p>
@@ -293,14 +260,6 @@ const RentalManagement = ({ onUpdate }) => {
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Overdue Rentals</h3>
           <p className="text-2xl font-semibold text-red-600">{stats.overdueRentals}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Total Revenue</h3>
-          <p className="text-2xl font-semibold text-green-600">฿{stats.totalRevenue.toLocaleString()}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Unpaid Amount</h3>
-          <p className="text-2xl font-semibold text-orange-600">฿{stats.unpaidAmount.toLocaleString()}</p>
         </div>
       </div>
 
@@ -364,10 +323,13 @@ const RentalManagement = ({ onUpdate }) => {
                     Customer
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dates
+                    Contact
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
+                    Dates & Times
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rental Amount
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -389,34 +351,63 @@ const RentalManagement = ({ onUpdate }) => {
 
                   return (
                     <tr key={rental.id}>
+                      {/* Order Number */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {rental.orderNumber}
                       </td>
+                      
+                      {/* Scooter */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
                         <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
                         <div className="text-xs text-gray-500">{rental.scooterColor}</div>
                       </td>
+                      
+                      {/* Customer */}
                       <td className="px-4 py-4 text-sm">
                         <div className="font-medium text-gray-900">{rental.customerName}</div>
                         <div className="text-xs text-gray-500">{rental.passportNumber}</div>
                       </td>
+                      
+                      {/* Contact (WhatsApp) */}
                       <td className="px-4 py-4 text-sm">
-                        <div>{new Date(rental.startDate).toLocaleDateString()}</div>
-                        <div>{new Date(rental.endDate).toLocaleDateString()}</div>
+                        {rental.whatsappNumber ? (
+                          <>
+                            <div className="text-xs text-gray-900">
+                              {rental.whatsappCountryCode} {rental.whatsappNumber}
+                            </div>
+                            <div className="text-xs text-gray-500">WhatsApp</div>
+                          </>
+                        ) : (
+                          <div className="text-xs text-gray-400">No WhatsApp</div>
+                        )}
                       </td>
+                      
+                      {/* Dates & Times */}
+                      <td className="px-4 py-4 text-sm">
+                        <div>{new Date(rental.startDate).toLocaleDateString()} {rental.startTime || '09:00'}</div>
+                        <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
+                      </td>
+                      
+                      {/* Rental Amount */}
                       <td className="px-4 py-4 text-sm">
                         <div>฿{rental.dailyRate.toLocaleString()}/day</div>
                         <div className="text-xs text-gray-500">Total: ฿{totalAmount.toLocaleString()}</div>
+                        <div className="text-xs text-blue-500">Deposit: ฿{(rental.deposit || 4000).toLocaleString()}</div>
                       </td>
+                      
+                      {/* Status */}
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
                           {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
                         </span>
                       </td>
+                      
+                      {/* Payment Status */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
                         <button 
                           onClick={() => handleUpdatePaymentStatus(rental)}
                           className="flex items-center"
+                          title={rental.paid ? 'Mark as Unpaid' : 'Mark as Paid'}
                         >
                           {rental.paid ? (
                             <span className="text-green-600">
@@ -429,17 +420,21 @@ const RentalManagement = ({ onUpdate }) => {
                           )}
                         </button>
                       </td>
+                      
+                      {/* Actions */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           <button 
                             className="text-blue-600 hover:text-blue-900"
                             onClick={() => handleEdit(rental)}
+                            title="Edit Rental"
                           >
                             <PencilIcon className="h-4 w-4" />
                           </button>
                           <button 
                             className="text-red-600 hover:text-red-900"
                             onClick={() => handleDeleteRental(rental)}
+                            title="Delete Rental"
                           >
                             <Trash2Icon className="h-4 w-4" />
                           </button>
@@ -447,6 +442,7 @@ const RentalManagement = ({ onUpdate }) => {
                             <button 
                               className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded"
                               onClick={() => handleCompleteRental(rental)}
+                              title="Complete Rental"
                             >
                               Complete
                             </button>
@@ -501,27 +497,46 @@ const RentalManagement = ({ onUpdate }) => {
                   <div className="mb-3 pb-3 border-b border-gray-200">
                     <h4 className="font-medium text-gray-900">{rental.customerName}</h4>
                     <p className="text-sm text-gray-500">{rental.passportNumber}</p>
+                    {rental.whatsappNumber && (
+                      <p className="text-sm text-blue-600">
+                        WhatsApp: {rental.whatsappCountryCode} {rental.whatsappNumber}
+                      </p>
+                    )}
                   </div>
 
                   {/* Rental Details */}
                   <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                     <div>
-                      <span className="text-gray-500">Start Date:</span>
+                      <span className="text-gray-500">Start:</span>
                       <div className="font-medium">{new Date(rental.startDate).toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500">{rental.startTime || '09:00'}</div>
                     </div>
                     <div>
-                      <span className="text-gray-500">End Date:</span>
+                      <span className="text-gray-500">End:</span>
                       <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
                     </div>
                     <div>
                       <span className="text-gray-500">Daily Rate:</span>
                       <div className="font-medium">฿{rental.dailyRate.toLocaleString()}</div>
                     </div>
                     <div>
-                      <span className="text-gray-500">Total:</span>
+                      <span className="text-gray-500">Rental Total:</span>
                       <div className="font-medium text-lg">฿{totalAmount.toLocaleString()}</div>
                     </div>
+                    <div className="col-span-2">
+                      <span className="text-gray-500">Deposit:</span>
+                      <div className="font-medium text-blue-600">฿{(rental.deposit || 4000).toLocaleString()}</div>
+                    </div>
                   </div>
+
+                  {/* Notes if available */}
+                  {rental.notes && (
+                    <div className="mb-3 pb-3 border-b border-gray-200">
+                      <span className="text-gray-500 text-sm">Notes:</span>
+                      <p className="text-sm text-gray-700 mt-1">{rental.notes}</p>
+                    </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">
