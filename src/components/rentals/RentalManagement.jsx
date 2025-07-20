@@ -87,10 +87,18 @@ const RentalManagement = ({ onUpdate }) => {
       // בדיקה אם השתנה האופנוע
       const scooterChanged = originalRental.scooterId !== formData.scooterId
       
+      console.log('=== Edit Rental Debug ===')
+      console.log('Original scooter ID:', originalRental.scooterId)
+      console.log('New scooter ID:', formData.scooterId)
+      console.log('Scooter changed:', scooterChanged)
+      
       if (scooterChanged) {
+        console.log('Scooter changed - updating scooter assignments')
+        
         // שחרור האופנוע הישן
         const oldScooter = allScooters.find(s => s.id === originalRental.scooterId)
         if (oldScooter) {
+          console.log('Releasing old scooter:', oldScooter.licensePlate)
           await updateScooter({
             ...oldScooter,
             status: 'available',
@@ -101,23 +109,23 @@ const RentalManagement = ({ onUpdate }) => {
         // חסימת האופנוע החדש
         const newScooter = allScooters.find(s => s.id === formData.scooterId)
         if (newScooter) {
+          console.log('Blocking new scooter:', newScooter.licensePlate)
           await updateScooter({
             ...newScooter,
             status: 'rented',
             lastRentalId: originalRental.id
           })
-          
-          // עדכון פרטי האופנוע בהשכרה
-          formData.scooterLicense = newScooter.licensePlate
-          formData.scooterColor = newScooter.color
         }
       }
       
+      // עדכון ההשכרה עם כל הנתונים החדשים (כולל פרטי האופנוע)
       const updatedRental = await updateRental({
         ...originalRental,
         ...formData,
         updatedAt: new Date().toISOString()
       })
+      
+      console.log('Updated rental:', updatedRental)
       
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
       await fetchAllScooters()
@@ -126,7 +134,7 @@ const RentalManagement = ({ onUpdate }) => {
       onUpdate?.()
     } catch (error) {
       console.error('Error updating rental:', error)
-      setError('Failed to update rental')
+      setError('Failed to update rental: ' + error.message)
     }
   }
 

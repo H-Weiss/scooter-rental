@@ -161,15 +161,28 @@ export const addRental = async (rental) => {
 
 export const updateRental = async (rental) => {
   try {
+    console.log('=== updateRental Debug ===')
+    console.log('Rental data received:', rental)
+    
     const updateData = {
+      // פרטי אופנוע (יכולים להשתנות בעריכה)
+      scooter_id: rental.scooterId,
+      scooter_license: rental.scooterLicense,
+      scooter_color: rental.scooterColor,
+      
+      // פרטי לקוח
       customer_name: rental.customerName,
       passport_number: rental.passportNumber,
       whatsapp_country_code: rental.whatsappCountryCode,
       whatsapp_number: rental.whatsappNumber,
+      
+      // תאריכים ושעות
       start_date: rental.startDate,
       end_date: rental.endDate,
       start_time: rental.startTime || '09:00',
       end_time: rental.endTime || '18:00',
+      
+      // מחיר וסטטוס
       daily_rate: rental.dailyRate,
       status: rental.status,
       paid: rental.paid,
@@ -181,6 +194,9 @@ export const updateRental = async (rental) => {
     if (rental.completedAt) updateData.completed_at = rental.completedAt
     if (rental.activatedAt) updateData.activated_at = rental.activatedAt
     if (rental.requiresAgreement !== undefined) updateData.requires_agreement = rental.requiresAgreement
+    if (rental.updatedAt) updateData.updated_at = rental.updatedAt
+
+    console.log('Update data for database:', updateData)
 
     const { data, error } = await supabase
       .from('rentals')
@@ -189,8 +205,16 @@ export const updateRental = async (rental) => {
       .select()
       .single()
 
-    if (error) throw error
-    return convertRentalToFrontend(data)
+    if (error) {
+      console.error('Supabase update error:', error)
+      throw error
+    }
+    
+    console.log('Updated rental from database:', data)
+    const result = convertRentalToFrontend(data)
+    console.log('Converted result:', result)
+    
+    return result
   } catch (error) {
     console.error('Error updating rental:', error)
     throw new Error(`Failed to update rental: ${error.message}`)
