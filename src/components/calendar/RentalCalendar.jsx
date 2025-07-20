@@ -5,6 +5,7 @@ import 'moment/locale/en-gb' // English locale
 import { Plus, Eye, DollarSign, Clock, Calendar as CalendarIcon } from 'lucide-react'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import './calendar.css'
+import AvailabilityChecker from './AvailabilityChecker'
 
 // Force English locale
 moment.locale('en-gb')
@@ -306,6 +307,12 @@ const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental
           </div>
         </div>
       </div>
+
+      {/* Quick Availability Checker */}
+      <AvailabilityChecker 
+        scooters={validScooters} 
+        rentals={validRentals}
+      />
   
       {/* Scooter Legend - mobile optimized */}
       {validScooters && validScooters.length > 0 && (
@@ -326,10 +333,10 @@ const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental
         </div>
       )}
   
-      {/* Calendar Container - with height limitation */}
+      {/* Calendar Container - עם גובה מוגדל ל-4 אירועים */}
       <div className="calendar-container" style={{ 
-        height: window.innerWidth < 768 ? '350px' : '450px',
-        maxHeight: window.innerWidth < 768 ? '350px' : '450px',
+        height: window.innerWidth < 480 ? '500px' : window.innerWidth < 768 ? '600px' : '800px',
+        maxHeight: window.innerWidth < 480 ? '550px' : window.innerWidth < 768 ? '650px' : '900px',
         overflow: 'hidden',
         marginBottom: '2rem'
       }}>
@@ -349,29 +356,46 @@ const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental
           step={60}
           showMultiDayTimes
           formats={customFormats}
-          culture="en-gb" // Force English culture
+          culture="en-gb"
           style={{ 
             height: '100%', 
             maxHeight: '100%',
             overflow: 'hidden'
           }}
+          // שיפור תצוגת האירועים
+          dayLayoutAlgorithm="no-overlap"
+          // הגדרת מספר מקסימלי של אירועים לפני "show more" - 4 בדסקטופ
+          max={4}
           components={{
             event: ({ event }) => (
-              <div className="flex items-center justify-between text-xs overflow-hidden">
-                <span className="truncate flex-1 mr-1">{event.title}</span>
+              <div className="flex items-center justify-between text-xs overflow-hidden h-full">
+                <span className="truncate flex-1 mr-1 leading-tight">{event.title}</span>
                 <div className="flex items-center space-x-1 flex-shrink-0">
                   <Clock className="w-2 h-2" />
                   {event.resource.isPaid ? (
-                    <DollarSign className="w-2 h-2 sm:w-3 sm:h-3" />
+                    <DollarSign className="w-2 h-2 sm:w-3 sm:h-3 text-green-200" />
                   ) : (
-                    <span className="text-red-200">!</span>
+                    <span className="text-red-200 text-xs">!</span>
                   )}
                 </div>
               </div>
-            )
+            ),
+            // הוספת קומפוננט מותאם אישית ל-month
+            month: {
+              // שיפור תצוגת הימים
+              dateHeader: ({ date, label }) => (
+                <div className="rbc-date-cell">
+                  <span className={`
+                    ${moment(date).isSame(moment(), 'day') ? 'bg-blue-100 text-blue-800 rounded-full px-2 py-1' : ''}
+                    ${moment(date).isSame(moment(), 'month') ? '' : 'text-gray-400'}
+                  `}>
+                    {label}
+                  </span>
+                </div>
+              )
+            }
           }}
           messages={{
-            // Override default messages to English
             date: 'Date',
             time: 'Time',
             event: 'Event',
