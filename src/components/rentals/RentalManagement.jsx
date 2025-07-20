@@ -351,15 +351,31 @@ const RentalManagement = ({ onUpdate }) => {
   // Calculate statistics - moved BEFORE it's used
   const stats = calculateStatistics()
 
-  // Filter rentals by active tab
-  const filteredRentals = rentals.filter(rental => {
-    if (activeTab === 'pending') {
-      return rental.status === 'pending'
-    } else if (activeTab === 'active') {
-      return rental.status === 'active'
-    }
-    return rental.status === 'completed'
-  })
+  // Filter rentals by active tab - עם מיון לפי תאריך
+  const filteredRentals = rentals
+    .filter(rental => {
+      if (activeTab === 'pending') {
+        return rental.status === 'pending'
+      } else if (activeTab === 'active') {
+        return rental.status === 'active'
+      }
+      return rental.status === 'completed'
+    })
+    .sort((a, b) => {
+      // מיון לפי תאריך תחילת ההשכרה
+      if (activeTab === 'pending') {
+        // עבור הזמנות עתידיות - מהקרוב ביותר לרחוק ביותר
+        return new Date(a.startDate) - new Date(b.startDate)
+      } else if (activeTab === 'active') {
+        // עבור השכרות פעילות - מהקרוב ביותר לסיום (לפי endDate)
+        return new Date(a.endDate) - new Date(b.endDate)
+      } else {
+        // עבור השכרות שהושלמו - מהאחרון ביותר לראשון (לפי completedAt או createdAt)
+        const aDate = new Date(a.completedAt || a.createdAt)
+        const bDate = new Date(b.completedAt || b.createdAt)
+        return bDate - aDate
+      }
+    })
 
   if (isLoading) {
     return (

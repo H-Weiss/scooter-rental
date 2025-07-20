@@ -110,7 +110,8 @@ export const getRentals = async () => {
     const { data, error } = await supabase
       .from('rentals')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('start_date', { ascending: true }) // מיון לפי תאריך התחלה מהקרוב לרחוק
+      .order('created_at', { ascending: false }) // מיון משני לפי תאריך יצירה
 
     if (error) throw error
     return (data || []).map(convertRentalToFrontend)
