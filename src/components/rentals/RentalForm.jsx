@@ -84,15 +84,12 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     }
   }, [initialData])
 
-  // פילטור אופנועים זמינים לפי תאריכים - רק כאשר יש תאריכי התחלה וסיום
+  // פילטור אופנועים זמינים לפי תאריכים - לכל סוגי ההזמנות
   useEffect(() => {
-    if (!isEditing && formData.startDate && formData.endDate) {
+    if (formData.startDate && formData.endDate) {
       filterAvailableScooters()
-    } else if (!isEditing && !formData.startDate && !formData.endDate) {
+    } else if (!formData.startDate && !formData.endDate) {
       // אם אין תאריכים, הצג את כל הקטנועים הזמינים
-      setFilteredScooters(availableScooters || [])
-    } else if (isEditing) {
-      // במצב עריכה, לא נבדק זמינות (הקטנוע כבר תפוס)
       setFilteredScooters(availableScooters || [])
     }
   }, [formData.startDate, formData.endDate, availableScooters, isEditing])
@@ -105,20 +102,23 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
 
     setIsLoadingScooters(true)
     try {
-      // מביא את כל הרנטלים הפעילים
-      const { getRentals } = await import('../../lib/database')
-      const allRentals = await getRentals()
+      // מביא את כל הרנטלים הפעילים והמוזמנים
+      const { getRentals, getScooters } = await import('../../lib/database')
+      const [allRentals, allScooters] = await Promise.all([
+        getRentals(),
+        getScooters()
+      ])
       
       const requestedStartDate = new Date(formData.startDate)
       const requestedEndDate = new Date(formData.endDate)
       
-      console.log('=== Checking availability ===')
+      console.log('=== Checking availability (FIXED) ===')
       console.log('Requested period:', {
         start: requestedStartDate.toDateString(),
         end: requestedEndDate.toDateString()
       })
       
-      // מוצא אופנועים שתפוסים בתקופה הנבחרת
+      // מוצא אופנועים שתפוסים בתקופה הנבחרת (כל סוגי ההשכרות)
       const occupiedScooterIds = new Set()
       
       allRentals.forEach(rental => {
@@ -127,13 +127,14 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           return
         }
         
-        // בודק רק השכרות פעילות (לא pending)
-        if (rental.status === 'active') {
+        // בודק השכרות פעילות ומוזמנות (לא completed)
+        if (rental.status === 'active' || rental.status === 'pending') {
           const rentalStartDate = new Date(rental.startDate)
           const rentalEndDate = new Date(rental.endDate)
           
           console.log(`Checking rental ${rental.orderNumber}:`, {
             scooter: rental.scooterLicense,
+            status: rental.status,
             period: `${rentalStartDate.toDateString()} - ${rentalEndDate.toDateString()}`
           })
           
@@ -144,7 +145,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           )
           
           if (hasConflict) {
-            console.log(`❌ Conflict found for scooter ${rental.scooterLicense}`)
+            console.log(`❌ Conflict found for scooter ${rental.scooterLicense} (${rental.status})`)
             occupiedScooterIds.add(rental.scooterId)
           } else {
             console.log(`✅ No conflict for scooter ${rental.scooterLicense}`)
@@ -152,17 +153,29 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
         }
       })
       
-      // הוספת כל הקטנועים הזמינים (לא מושכרים כלל)
-      const allAvailableScooters = await import('../../lib/database').then(db => db.getScooters())
-      const availableScooters = allAvailableScooters.filter(scooter => 
-        scooter.status === 'available' || 
-        (scooter.status === 'rented' && !occupiedScooterIds.has(scooter.id))
-      )
+      // סינון האופנועים הזמינים
+      const availableScooters = allScooters.filter(scooter => {
+        // אופנוע זמין אם:
+        // 1. הסטטוס שלו available
+        // 2. או שהסטטוס rented אבל הוא לא תפוס בתקופה הנבחרת
+        // 3. במצב עריכה - גם האופנוע הנוכחי זמין לבחירה
+        const isCurrentScooter = isEditing && initialData && scooter.id === initialData.scooterId
+        const isGenerallyAvailable = scooter.status === 'available'
+        const isNotOccupied = !occupiedScooterIds.has(scooter.id)
+        
+        return isCurrentScooter || (isGenerallyAvailable && isNotOccupied) || (scooter.status === 'rented' && isNotOccupied)
+      })
       
-      console.log('Available scooters:', availableScooters.map(s => s.licensePlate))
+      console.log('Available scooters:', availableScooters.map(s => `${s.licensePlate} (${s.status})`))
       console.log('Occupied scooter IDs:', Array.from(occupiedScooterIds))
       
       setFilteredScooters(availableScooters)
+      
+      // במצב עריכה, וודא שהאופנוע הנוכחי נבחר
+      if (isEditing && initialData && !formData.scooterId) {
+        setFormData(prev => ({ ...prev, scooterId: initialData.scooterId }))
+      }
+      
     } catch (error) {
       console.error('Error filtering scooters:', error)
       setFilteredScooters(availableScooters || [])
@@ -191,6 +204,17 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
       
       return updated
     })
+  }
+
+  // עדכון בחירת האופנוע כולל פרטיו
+  const handleScooterChange = (scooterId) => {
+    const selectedScooter = filteredScooters.find(s => s.id === scooterId)
+    setFormData(prev => ({
+      ...prev,
+      scooterId,
+      scooterLicense: selectedScooter?.licensePlate || '',
+      scooterColor: selectedScooter?.color || ''
+    }))
   }
 
   const handleSubmit = async (e) => {
@@ -229,14 +253,14 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
   const validateForm = () => {
     const newErrors = {}
 
-    if (!isEditing) {
-      if (!formData.scooterId) {
-        newErrors.scooterId = 'Please select a scooter'
-      }
-      // רק השכרות פעילות דורשות חתימה על חוזה
-      if (!formData.isReservation && !formData.hasSignedAgreement) {
-        newErrors.agreement = 'Customer must sign the rental agreement'
-      }
+    // תמיד נדרש לבחור אופנוע
+    if (!formData.scooterId) {
+      newErrors.scooterId = 'Please select a scooter'
+    }
+    
+    // רק השכרות פעילות דורשות חתימה על חוזה
+    if (!formData.isReservation && !formData.hasSignedAgreement) {
+      newErrors.agreement = 'Customer must sign the rental agreement'
     }
 
     if (!formData.customerName.trim()) {
@@ -369,7 +393,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
             </div>
             <p className="text-xs text-gray-500 mt-2">
               {formData.isReservation 
-                ? 'Reserve a scooter for future dates - no agreement needed until activation'
+                ? 'Reserve a scooter for future dates - will block the scooter but no agreement needed until activation'
                 : 'Rent immediately - requires signed agreement and scooter will be blocked'
               }
             </p>
@@ -410,47 +434,46 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
               )}
             </div>
 
-            {/* Scooter Selection - רק לאחר בחירת תאריכים */}
-            {!isEditing && (
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Scooter *
-                  {isLoadingScooters && (
-                    <span className="ml-2 text-xs text-blue-600">Checking availability...</span>
-                  )}
-                </label>
-                <select
-                  value={formData.scooterId}
-                  onChange={(e) => setFormData({ ...formData, scooterId: e.target.value })}
-                  className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.scooterId ? 'border-red-300' : 'border-gray-300'}`}
-                  required
-                  disabled={!formData.startDate || !formData.endDate || isLoadingScooters}
-                >
-                  <option value="">
-                    {!formData.startDate || !formData.endDate 
-                      ? 'Please select dates first' 
-                      : isLoadingScooters 
-                      ? 'Checking availability...'
-                      : 'Select a scooter'
-                    }
+            {/* Scooter Selection - תמיד מוצג, גם בעריכה */}
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Scooter *
+                {isLoadingScooters && (
+                  <span className="ml-2 text-xs text-blue-600">Checking availability...</span>
+                )}
+              </label>
+              <select
+                value={formData.scooterId}
+                onChange={(e) => handleScooterChange(e.target.value)}
+                className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.scooterId ? 'border-red-300' : 'border-gray-300'}`}
+                required
+                disabled={!formData.startDate || !formData.endDate || isLoadingScooters}
+              >
+                <option value="">
+                  {!formData.startDate || !formData.endDate 
+                    ? 'Please select dates first' 
+                    : isLoadingScooters 
+                    ? 'Checking availability...'
+                    : 'Select a scooter'
+                  }
+                </option>
+                {filteredScooters?.map(scooter => (
+                  <option key={scooter.id} value={scooter.id}>
+                    {scooter.licensePlate} - {scooter.color}
+                    {isEditing && initialData && scooter.id === initialData.scooterId ? ' (Current)' : ''}
                   </option>
-                  {filteredScooters?.map(scooter => (
-                    <option key={scooter.id} value={scooter.id}>
-                      {scooter.licensePlate} - {scooter.color}
-                    </option>
-                  ))}
-                </select>
-                {errors.scooterId && (
-                  <p className="mt-1 text-sm text-red-600">{errors.scooterId}</p>
-                )}
-                {formData.startDate && formData.endDate && !isLoadingScooters && filteredScooters.length === 0 && (
-                  <p className="mt-1 text-sm text-orange-600">No scooters available for selected dates</p>
-                )}
-                {formData.startDate && formData.endDate && !isLoadingScooters && filteredScooters.length > 0 && (
-                  <p className="mt-1 text-sm text-green-600">{filteredScooters.length} scooter(s) available</p>
-                )}
-              </div>
-            )}
+                ))}
+              </select>
+              {errors.scooterId && (
+                <p className="mt-1 text-sm text-red-600">{errors.scooterId}</p>
+              )}
+              {formData.startDate && formData.endDate && !isLoadingScooters && filteredScooters.length === 0 && (
+                <p className="mt-1 text-sm text-orange-600">No scooters available for selected dates</p>
+              )}
+              {formData.startDate && formData.endDate && !isLoadingScooters && filteredScooters.length > 0 && (
+                <p className="mt-1 text-sm text-green-600">{filteredScooters.length} scooter(s) available</p>
+              )}
+            </div>
   
             {/* Customer Details - כל השדות ניתנים לעריכה */}
             <div>
@@ -579,7 +602,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           </div>
   
           {/* Agreement Checkbox - רק בהשכרה מיידית */}
-          {!isEditing && !formData.isReservation && (
+          {!formData.isReservation && (
             <div className="mt-4">
               <div className="flex items-start">
                 <div className="flex items-center h-5">
@@ -605,11 +628,11 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           )}
 
           {/* Info about reservation */}
-          {!isEditing && formData.isReservation && (
+          {formData.isReservation && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
                 <Calendar className="w-4 h-4 inline mr-1" />
-                This is a future reservation. Agreement signing and passport copy will be required when the customer arrives to activate the rental.
+                This reservation will block the scooter for the selected dates. Agreement signing and passport copy will be required when activating the rental.
               </p>
             </div>
           )}
@@ -708,7 +731,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || (!isEditing && (!formData.scooterId || (!formData.isReservation && !formData.hasSignedAgreement)))}
+              disabled={isSubmitting || (!formData.scooterId || (!formData.isReservation && !formData.hasSignedAgreement))}
               className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : formData.isReservation ? 'Create Reservation' : 'Create Rental'}

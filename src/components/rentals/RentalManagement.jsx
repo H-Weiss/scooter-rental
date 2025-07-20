@@ -5,13 +5,13 @@ import { getRentals, addRental, updateRental, deleteRental, getScooters, updateS
 
 const RentalManagement = ({ onUpdate }) => {
   const [rentals, setRentals] = useState([])
-  const [availableScooters, setAvailableScooters] = useState([])
+  const [allScooters, setAllScooters] = useState([]) // שינוי: כל האופנועים במקום רק הזמינים
   const [showForm, setShowForm] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('active') // התחל בטאב pending
+  const [activeTab, setActiveTab] = useState('active')
   const [editingRental, setEditingRental] = useState(null)
-  const [reservationMode, setReservationMode] = useState(false) // מצב יצירת הזמנה עתידית
+  const [reservationMode, setReservationMode] = useState(false)
 
   const fetchRentals = async () => {
     try {
@@ -24,22 +24,22 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
-  const fetchAvailableScooters = async () => {
+  // שינוי: מביא את כל האופנועים במקום רק הזמינים
+  const fetchAllScooters = async () => {
     try {
       const scooters = await getScooters()
-      const available = scooters.filter(scooter => scooter.status === 'available')
-      setAvailableScooters(available)
+      setAllScooters(scooters || [])
       setError(null)
     } catch (error) {
-      console.error('Error fetching available scooters:', error)
-      setError('Failed to load available scooters')
+      console.error('Error fetching scooters:', error)
+      setError('Failed to load scooters')
     }
   }
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
-      await Promise.all([fetchRentals(), fetchAvailableScooters()])
+      await Promise.all([fetchRentals(), fetchAllScooters()])
       setIsLoading(false)
     }
     loadData()
@@ -48,7 +48,7 @@ const RentalManagement = ({ onUpdate }) => {
   const handleCreateRental = async (formData) => {
     try {
       // מציאת הקטנוע הנבחר
-      const selectedScooter = availableScooters.find(s => s.id === formData.scooterId)
+      const selectedScooter = allScooters.find(s => s.id === formData.scooterId)
       if (!selectedScooter) {
         throw new Error('Selected scooter not found')
       }
@@ -62,17 +62,15 @@ const RentalManagement = ({ onUpdate }) => {
         status: formData.status || (formData.isReservation ? 'pending' : 'active')
       })
   
-      // עדכון סטטוס הקטנוע רק אם זו השכרה פעילה (לא reservation)
-      if (newRental.status === 'active') {
-        await updateScooter({
-          ...selectedScooter,
-          status: 'rented',
-          lastRentalId: newRental.id
-        })
-      }
+      // עדכון סטטוס הקטנוע לכל סוגי ההשכרות (כולל reservations)
+      await updateScooter({
+        ...selectedScooter,
+        status: 'rented',
+        lastRentalId: newRental.id
+      })
       
       setRentals(prev => [...prev, newRental])
-      await fetchAvailableScooters()
+      await fetchAllScooters()
       setShowForm(false)
       setReservationMode(false)
       onUpdate?.()
@@ -84,13 +82,45 @@ const RentalManagement = ({ onUpdate }) => {
 
   const handleEditRental = async (formData) => {
     try {
+      const originalRental = editingRental
+      
+      // בדיקה אם השתנה האופנוע
+      const scooterChanged = originalRental.scooterId !== formData.scooterId
+      
+      if (scooterChanged) {
+        // שחרור האופנוע הישן
+        const oldScooter = allScooters.find(s => s.id === originalRental.scooterId)
+        if (oldScooter) {
+          await updateScooter({
+            ...oldScooter,
+            status: 'available',
+            lastRentalId: null
+          })
+        }
+        
+        // חסימת האופנוע החדש
+        const newScooter = allScooters.find(s => s.id === formData.scooterId)
+        if (newScooter) {
+          await updateScooter({
+            ...newScooter,
+            status: 'rented',
+            lastRentalId: originalRental.id
+          })
+          
+          // עדכון פרטי האופנוע בהשכרה
+          formData.scooterLicense = newScooter.licensePlate
+          formData.scooterColor = newScooter.color
+        }
+      }
+      
       const updatedRental = await updateRental({
-        ...editingRental,
+        ...originalRental,
         ...formData,
         updatedAt: new Date().toISOString()
       })
       
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
+      await fetchAllScooters()
       setShowForm(false)
       setEditingRental(null)
       onUpdate?.()
@@ -108,19 +138,14 @@ const RentalManagement = ({ onUpdate }) => {
 
   // פונקציה חדשה להפעלת הזמנה עתידית
   const handleActivateReservation = async (rental) => {
-    if (window.confirm(`Activate reservation #${rental.orderNumber}? This will block the scooter and require agreement signing.`)) {
+    if (window.confirm(`Activate reservation #${rental.orderNumber}? This will require agreement signing.`)) {
       try {
-        // בדיקה שהקטנוע עדיין זמין
+        // בדיקה שהקטנוע עדיין קיים (כבר חסום)
         const scooters = await getScooters()
         const scooter = scooters.find(s => s.id === rental.scooterId)
         
         if (!scooter) {
           throw new Error('Scooter not found')
-        }
-        
-        if (scooter.status !== 'available') {
-          setError(`Scooter ${scooter.licensePlate} is no longer available. Please select a different scooter.`)
-          return
         }
         
         // עדכון ההזמנה לפעילה
@@ -130,15 +155,7 @@ const RentalManagement = ({ onUpdate }) => {
           activatedAt: new Date().toISOString()
         })
         
-        // חסימת הקטנוע
-        await updateScooter({
-          ...scooter,
-          status: 'rented',
-          lastRentalId: rental.id
-        })
-        
         setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
-        await fetchAvailableScooters()
         onUpdate?.()
         
         alert(`Reservation #${rental.orderNumber} has been activated! Don't forget to:\n• Get signed rental agreement\n• Take passport copy\n• Collect deposit`)
@@ -175,7 +192,7 @@ const RentalManagement = ({ onUpdate }) => {
       })
       
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
-      await fetchAvailableScooters()
+      await fetchAllScooters()
       onUpdate?.()
     } catch (error) {
       console.error('Error completing rental:', error)
@@ -188,22 +205,23 @@ const RentalManagement = ({ onUpdate }) => {
       try {
         await deleteRental(rental.id)
         
-        // אם ההשכרה הייתה פעילה, נשחרר את הקטנוע
-        if (rental.status === 'active') {
+        // אם ההשכרה הייתה פעילה או pending, נשחרר את הקטנוע
+        if (rental.status === 'active' || rental.status === 'pending') {
           const scooters = await getScooters()
           const scooter = scooters.find(s => s.id === rental.scooterId)
           
           if (scooter) {
             await updateScooter({
               ...scooter,
-              status: 'available'
+              status: 'available',
+              lastRentalId: null
             })
           }
         }
         
         // עדכון הממשק
         setRentals(prev => prev.filter(r => r.id !== rental.id))
-        await fetchAvailableScooters()
+        await fetchAllScooters()
         onUpdate?.()
       } catch (error) {
         console.error('Error deleting rental:', error)
@@ -255,6 +273,8 @@ const RentalManagement = ({ onUpdate }) => {
         return 'bg-green-100 text-green-800'
       case 'completed':
         return 'bg-blue-100 text-blue-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
       case 'overdue':
         return 'bg-red-100 text-red-800'
       default:
@@ -686,7 +706,7 @@ const RentalManagement = ({ onUpdate }) => {
             setEditingRental(null)
             setReservationMode(false)
           }}
-          availableScooters={availableScooters}
+          availableScooters={allScooters} // מעביר את כל האופנועים
           initialData={editingRental}
           isEditing={!!editingRental}
           reservationMode={reservationMode}
