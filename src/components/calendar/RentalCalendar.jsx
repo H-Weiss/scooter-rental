@@ -294,18 +294,6 @@ const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
           Rental Calendar
         </h2>
-        
-        {/* Legend */}
-        <div className="flex items-center space-x-4 text-xs sm:text-sm">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-blue-500 bg-blue-500 rounded"></div>
-            <span>Paid</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-dashed border-blue-500 bg-blue-500 opacity-70 rounded"></div>
-            <span>Unpaid</span>
-          </div>
-        </div>
       </div>
 
       {/* Quick Availability Checker */}
