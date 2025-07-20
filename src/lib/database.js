@@ -125,26 +125,29 @@ export const addRental = async (rental) => {
     // Generate order number
     const orderNumber = await generateOrderNumber()
     
+    const insertData = {
+      order_number: orderNumber,
+      scooter_id: rental.scooterId,
+      scooter_license: rental.scooterLicense,
+      scooter_color: rental.scooterColor,
+      customer_name: rental.customerName,
+      passport_number: rental.passportNumber,
+      whatsapp_country_code: rental.whatsappCountryCode,
+      whatsapp_number: rental.whatsappNumber,
+      start_date: rental.startDate,
+      end_date: rental.endDate,
+      start_time: rental.startTime || '09:00',
+      end_time: rental.endTime || '18:00',
+      daily_rate: rental.dailyRate,
+      deposit: rental.deposit || 4000,
+      status: rental.status || 'active', // 'pending', 'active', או 'completed'
+      notes: rental.notes || '',
+      requires_agreement: rental.requiresAgreement || false
+    }
+
     const { data, error } = await supabase
       .from('rentals')
-      .insert([{
-        order_number: orderNumber,
-        scooter_id: rental.scooterId,
-        scooter_license: rental.scooterLicense,
-        scooter_color: rental.scooterColor,
-        customer_name: rental.customerName,
-        passport_number: rental.passportNumber,
-        whatsapp_country_code: rental.whatsappCountryCode,
-        whatsapp_number: rental.whatsappNumber,
-        start_date: rental.startDate,
-        end_date: rental.endDate,
-        start_time: rental.startTime || '09:00',
-        end_time: rental.endTime || '18:00',
-        daily_rate: rental.dailyRate,
-        deposit: rental.deposit || 4000,
-        status: rental.status || 'active',
-        notes: rental.notes || ''
-      }])
+      .insert([insertData])
       .select()
       .single()
 
@@ -176,6 +179,8 @@ export const updateRental = async (rental) => {
     // Add optional fields if they exist
     if (rental.paidAt) updateData.paid_at = rental.paidAt
     if (rental.completedAt) updateData.completed_at = rental.completedAt
+    if (rental.activatedAt) updateData.activated_at = rental.activatedAt
+    if (rental.requiresAgreement !== undefined) updateData.requires_agreement = rental.requiresAgreement
 
     const { data, error } = await supabase
       .from('rentals')
@@ -263,12 +268,14 @@ const convertRentalToFrontend = (dbRental) => ({
   endTime: dbRental.end_time,
   dailyRate: dbRental.daily_rate,
   deposit: dbRental.deposit,
-  status: dbRental.status,
+  status: dbRental.status, // 'pending', 'active', או 'completed'
   paid: dbRental.paid,
   paidAt: dbRental.paid_at,
   completedAt: dbRental.completed_at,
+  activatedAt: dbRental.activated_at, // מתי הופעלה הזמנה עתידית
   notes: dbRental.notes,
-  createdAt: dbRental.created_at
+  createdAt: dbRental.created_at,
+  requiresAgreement: dbRental.requires_agreement
 })
 
 // Generate order number

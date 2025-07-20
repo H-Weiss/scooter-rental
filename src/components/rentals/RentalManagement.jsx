@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon } from 'lucide-react'
+import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle } from 'lucide-react'
 import RentalForm from '../rentals/RentalForm'
 import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
 
@@ -9,8 +9,9 @@ const RentalManagement = ({ onUpdate }) => {
   const [showForm, setShowForm] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('active')
+  const [activeTab, setActiveTab] = useState('active') // התחל בטאב pending
   const [editingRental, setEditingRental] = useState(null)
+  const [reservationMode, setReservationMode] = useState(false) // מצב יצירת הזמנה עתידית
 
   const fetchRentals = async () => {
     try {
@@ -58,19 +59,22 @@ const RentalManagement = ({ onUpdate }) => {
         scooterLicense: selectedScooter.licensePlate,
         scooterColor: selectedScooter.color,
         createdAt: new Date().toISOString(),
-        status: 'active'
+        status: formData.status || (formData.isReservation ? 'pending' : 'active')
       })
   
-      // עדכון סטטוס הקטנוע תוך שמירה על כל השדות הקיימים
-      await updateScooter({
-        ...selectedScooter,
-        status: 'rented',
-        lastRentalId: newRental.id
-      })
+      // עדכון סטטוס הקטנוע רק אם זו השכרה פעילה (לא reservation)
+      if (newRental.status === 'active') {
+        await updateScooter({
+          ...selectedScooter,
+          status: 'rented',
+          lastRentalId: newRental.id
+        })
+      }
       
       setRentals(prev => [...prev, newRental])
       await fetchAvailableScooters()
       setShowForm(false)
+      setReservationMode(false)
       onUpdate?.()
     } catch (error) {
       console.error('Error creating rental:', error)
@@ -98,7 +102,52 @@ const RentalManagement = ({ onUpdate }) => {
 
   const handleEdit = (rental) => {
     setEditingRental(rental)
+    setReservationMode(rental.status === 'pending')
     setShowForm(true)
+  }
+
+  // פונקציה חדשה להפעלת הזמנה עתידית
+  const handleActivateReservation = async (rental) => {
+    if (window.confirm(`Activate reservation #${rental.orderNumber}? This will block the scooter and require agreement signing.`)) {
+      try {
+        // בדיקה שהקטנוע עדיין זמין
+        const scooters = await getScooters()
+        const scooter = scooters.find(s => s.id === rental.scooterId)
+        
+        if (!scooter) {
+          throw new Error('Scooter not found')
+        }
+        
+        if (scooter.status !== 'available') {
+          setError(`Scooter ${scooter.licensePlate} is no longer available. Please select a different scooter.`)
+          return
+        }
+        
+        // עדכון ההזמנה לפעילה
+        const updatedRental = await updateRental({
+          ...rental,
+          status: 'active',
+          activatedAt: new Date().toISOString()
+        })
+        
+        // חסימת הקטנוע
+        await updateScooter({
+          ...scooter,
+          status: 'rented',
+          lastRentalId: rental.id
+        })
+        
+        setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
+        await fetchAvailableScooters()
+        onUpdate?.()
+        
+        alert(`Reservation #${rental.orderNumber} has been activated! Don't forget to:\n• Get signed rental agreement\n• Take passport copy\n• Collect deposit`)
+        
+      } catch (error) {
+        console.error('Error activating reservation:', error)
+        setError('Failed to activate reservation')
+      }
+    }
   }
 
   const handleCompleteRental = async (rental) => {
@@ -181,6 +230,7 @@ const RentalManagement = ({ onUpdate }) => {
   }
 
   const calculateStatistics = () => {
+    const pendingReservations = rentals.filter(r => r.status === 'pending').length
     const activeRentals = rentals.filter(r => r.status === 'active').length
     const completedRentals = rentals.filter(r => r.status === 'completed').length
     const overdueRentals = rentals.filter(r => {
@@ -192,6 +242,7 @@ const RentalManagement = ({ onUpdate }) => {
     }).length
 
     return {
+      pendingReservations,
       activeRentals,
       completedRentals,
       overdueRentals
@@ -216,7 +267,9 @@ const RentalManagement = ({ onUpdate }) => {
 
   // Filter rentals by active tab
   const filteredRentals = rentals.filter(rental => {
-    if (activeTab === 'active') {
+    if (activeTab === 'pending') {
+      return rental.status === 'pending'
+    } else if (activeTab === 'active') {
       return rental.status === 'active'
     }
     return rental.status === 'completed'
@@ -248,10 +301,14 @@ const RentalManagement = ({ onUpdate }) => {
   return (
     <div className="p-4 space-y-4">
       {/* Statistics Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Active Rentals</h3>
-          <p className="text-2xl font-semibold text-gray-900">{stats.activeRentals}</p>
+          <p className="text-2xl font-semibold text-green-600">{stats.activeRentals}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Pending Reservations</h3>
+          <p className="text-2xl font-semibold text-blue-600">{stats.pendingReservations}</p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500">Completed Rentals</h3>
@@ -265,45 +322,75 @@ const RentalManagement = ({ onUpdate }) => {
 
       {/* Header with Tabs and Add Button */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-gray-200 pb-4">
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('active')}
-            className={`py-2 px-4 border-b-2 ${
+            className={`py-2 px-4 border-b-2 whitespace-nowrap ${
               activeTab === 'active'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Active Rentals
+            <Clock className="h-4 w-4 inline mr-1" />
+            Active Rentals ({stats.activeRentals})
+          </button>
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`py-2 px-4 border-b-2 whitespace-nowrap ${
+              activeTab === 'pending'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Calendar className="h-4 w-4 inline mr-1" />
+            Pending Reservations ({stats.pendingReservations})
           </button>
           <button
             onClick={() => setActiveTab('completed')}
-            className={`py-2 px-4 border-b-2 ${
+            className={`py-2 px-4 border-b-2 whitespace-nowrap ${
               activeTab === 'completed'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Completed Rentals
+            <CheckCircle className="h-4 w-4 inline mr-1" />
+            Completed Rentals ({stats.completedRentals})
           </button>
         </div>
-        <button
-          onClick={() => {
-            setEditingRental(null)
-            setShowForm(true)
-          }}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <PlusCircle className="h-4 w-4 mr-2" />
-          New Rental
-        </button>
+        
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              setEditingRental(null)
+              setReservationMode(true)
+              setShowForm(true)
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            New Reservation
+          </button>
+          <button
+            onClick={() => {
+              setEditingRental(null)
+              setReservationMode(false)
+              setShowForm(true)
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            New Rental
+          </button>
+        </div>
       </div>
 
       {/* Rentals Display */}
       {filteredRentals.length === 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
           <div className="text-center text-gray-500">
-            {activeTab === 'active' ? 'No active rentals found.' : 'No completed rentals found.'}
+            {activeTab === 'pending' ? 'No pending reservations found.' : 
+             activeTab === 'active' ? 'No active rentals found.' : 
+             'No completed rentals found.'}
           </div>
         </div>
       ) : (
@@ -438,6 +525,16 @@ const RentalManagement = ({ onUpdate }) => {
                           >
                             <Trash2Icon className="h-4 w-4" />
                           </button>
+                          {rental.status === 'pending' && (
+                            <button 
+                              className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded flex items-center"
+                              onClick={() => handleActivateReservation(rental)}
+                              title="Activate Reservation"
+                            >
+                              <PlayCircle className="h-3 w-3 mr-1" />
+                              Activate
+                            </button>
+                          )}
                           {rental.status === 'active' && (
                             <button 
                               className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded"
@@ -554,6 +651,15 @@ const RentalManagement = ({ onUpdate }) => {
                       <Trash2Icon className="h-4 w-4 mr-1" />
                       Delete
                     </button>
+                    {rental.status === 'pending' && (
+                      <button 
+                        onClick={() => handleActivateReservation(rental)}
+                        className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50"
+                      >
+                        <PlayCircle className="h-4 w-4 mr-1" />
+                        Activate
+                      </button>
+                    )}
                     {rental.status === 'active' && (
                       <button 
                         onClick={() => handleCompleteRental(rental)}
@@ -578,10 +684,12 @@ const RentalManagement = ({ onUpdate }) => {
           onClose={() => {
             setShowForm(false)
             setEditingRental(null)
+            setReservationMode(false)
           }}
           availableScooters={availableScooters}
           initialData={editingRental}
           isEditing={!!editingRental}
+          reservationMode={reservationMode}
         />
       )}
     </div>
