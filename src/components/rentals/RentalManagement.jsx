@@ -45,6 +45,55 @@ const RentalManagement = ({ onUpdate }) => {
     loadData()
   }, [])
 
+  // פונקציה לעדכון חכם של סטטוס אופנוע לפי תאריכי השכרות
+  const updateScooterStatusSmart = async (scooterId) => {
+    try {
+      const scooter = allScooters.find(s => s.id === scooterId)
+      if (!scooter) return
+
+      // מצא את כל ההשכרות של האופנוע הזה
+      const scooterRentals = rentals.filter(r => 
+        r.scooterId === scooterId && 
+        (r.status === 'active' || r.status === 'pending')
+      )
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      // בדוק אם יש השכרה פעילה היום
+      const currentRental = scooterRentals.find(r => {
+        const startDate = new Date(r.startDate)
+        const endDate = new Date(r.endDate)
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(23, 59, 59, 999)
+        
+        return today >= startDate && today <= endDate && r.status === 'active'
+      })
+
+      let newStatus = 'available'
+      let lastRentalId = null
+
+      if (currentRental) {
+        newStatus = 'rented'
+        lastRentalId = currentRental.id
+      } else if (scooterRentals.length > 0) {
+        // יש השכרות עתידיות אבל לא נוכחיות - השאר available
+        newStatus = 'available'
+      }
+
+      // עדכן את הסטטוס רק אם השתנה
+      if (scooter.status !== newStatus) {
+        await updateScooter({
+          ...scooter,
+          status: newStatus,
+          lastRentalId
+        })
+      }
+    } catch (error) {
+      console.error('Error updating scooter status:', error)
+    }
+  }
+
   const handleCreateRental = async (formData) => {
     try {
       // מציאת הקטנוע הנבחר
@@ -62,15 +111,12 @@ const RentalManagement = ({ onUpdate }) => {
         status: formData.status || (formData.isReservation ? 'pending' : 'active')
       })
   
-      // עדכון סטטוס הקטנוע לכל סוגי ההשכרות (כולל reservations)
-      await updateScooter({
-        ...selectedScooter,
-        status: 'rented',
-        lastRentalId: newRental.id
-      })
-      
       setRentals(prev => [...prev, newRental])
+      
+      // עדכון חכם של סטטוס האופנוע
+      await updateScooterStatusSmart(selectedScooter.id)
       await fetchAllScooters()
+      
       setShowForm(false)
       setReservationMode(false)
       onUpdate?.()
@@ -92,33 +138,7 @@ const RentalManagement = ({ onUpdate }) => {
       console.log('New scooter ID:', formData.scooterId)
       console.log('Scooter changed:', scooterChanged)
       
-      if (scooterChanged) {
-        console.log('Scooter changed - updating scooter assignments')
-        
-        // שחרור האופנוע הישן
-        const oldScooter = allScooters.find(s => s.id === originalRental.scooterId)
-        if (oldScooter) {
-          console.log('Releasing old scooter:', oldScooter.licensePlate)
-          await updateScooter({
-            ...oldScooter,
-            status: 'available',
-            lastRentalId: null
-          })
-        }
-        
-        // חסימת האופנוע החדש
-        const newScooter = allScooters.find(s => s.id === formData.scooterId)
-        if (newScooter) {
-          console.log('Blocking new scooter:', newScooter.licensePlate)
-          await updateScooter({
-            ...newScooter,
-            status: 'rented',
-            lastRentalId: originalRental.id
-          })
-        }
-      }
-      
-      // עדכון ההשכרה עם כל הנתונים החדשים (כולל פרטי האופנוע)
+      // עדכון ההשכרה עם כל הנתונים החדשים
       const updatedRental = await updateRental({
         ...originalRental,
         ...formData,
@@ -128,6 +148,17 @@ const RentalManagement = ({ onUpdate }) => {
       console.log('Updated rental:', updatedRental)
       
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
+      
+      // עדכון חכם של סטטוס האופנועים הרלוונטיים
+      if (scooterChanged) {
+        // עדכן את שני האופנועים
+        await updateScooterStatusSmart(originalRental.scooterId)
+        await updateScooterStatusSmart(formData.scooterId)
+      } else {
+        // עדכן רק את האופנוע הנוכחי
+        await updateScooterStatusSmart(formData.scooterId)
+      }
+      
       await fetchAllScooters()
       setShowForm(false)
       setEditingRental(null)
@@ -148,14 +179,6 @@ const RentalManagement = ({ onUpdate }) => {
   const handleActivateReservation = async (rental) => {
     if (window.confirm(`Activate reservation #${rental.orderNumber}? This will require agreement signing.`)) {
       try {
-        // בדיקה שהקטנוע עדיין קיים (כבר חסום)
-        const scooters = await getScooters()
-        const scooter = scooters.find(s => s.id === rental.scooterId)
-        
-        if (!scooter) {
-          throw new Error('Scooter not found')
-        }
-        
         // עדכון ההזמנה לפעילה
         const updatedRental = await updateRental({
           ...rental,
@@ -164,6 +187,11 @@ const RentalManagement = ({ onUpdate }) => {
         })
         
         setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
+        
+        // עדכון חכם של סטטוס האופנוע
+        await updateScooterStatusSmart(rental.scooterId)
+        await fetchAllScooters()
+        
         onUpdate?.()
         
         alert(`Reservation #${rental.orderNumber} has been activated! Don't forget to:\n• Get signed rental agreement\n• Take passport copy\n• Collect deposit`)
@@ -183,24 +211,13 @@ const RentalManagement = ({ onUpdate }) => {
         status: 'completed',
         completedAt: new Date().toISOString()
       })
-  
-      // קבלת פרטי הקטנוע המלאים לפני העדכון
-      const scooters = await getScooters()
-      const scooter = scooters.find(s => s.id === rental.scooterId)
-      
-      if (!scooter) {
-        throw new Error('Scooter not found')
-      }
-  
-      // עדכון סטטוס הקטנוע תוך שמירה על כל השדות
-      await updateScooter({
-        ...scooter,
-        status: 'available',
-        lastRentalId: null
-      })
       
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
+      
+      // עדכון חכם של סטטוס האופנוע
+      await updateScooterStatusSmart(rental.scooterId)
       await fetchAllScooters()
+      
       onUpdate?.()
     } catch (error) {
       console.error('Error completing rental:', error)
@@ -213,23 +230,13 @@ const RentalManagement = ({ onUpdate }) => {
       try {
         await deleteRental(rental.id)
         
-        // אם ההשכרה הייתה פעילה או pending, נשחרר את הקטנוע
-        if (rental.status === 'active' || rental.status === 'pending') {
-          const scooters = await getScooters()
-          const scooter = scooters.find(s => s.id === rental.scooterId)
-          
-          if (scooter) {
-            await updateScooter({
-              ...scooter,
-              status: 'available',
-              lastRentalId: null
-            })
-          }
-        }
-        
         // עדכון הממשק
         setRentals(prev => prev.filter(r => r.id !== rental.id))
+        
+        // עדכון חכם של סטטוס האופנוע
+        await updateScooterStatusSmart(rental.scooterId)
         await fetchAllScooters()
+        
         onUpdate?.()
       } catch (error) {
         console.error('Error deleting rental:', error)
@@ -390,24 +397,13 @@ const RentalManagement = ({ onUpdate }) => {
           <button
             onClick={() => {
               setEditingRental(null)
-              setReservationMode(true)
-              setShowForm(true)
-            }}
-            className="inline-flex items-center justify-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            New Reservation
-          </button>
-          <button
-            onClick={() => {
-              setEditingRental(null)
-              setReservationMode(false)
+              setReservationMode(false) // השאר false - הטופס יחליט אוטומטית
               setShowForm(true)
             }}
             className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <PlusCircle className="h-4 w-4 mr-2" />
-            New Rental
+            New Booking
           </button>
         </div>
       </div>

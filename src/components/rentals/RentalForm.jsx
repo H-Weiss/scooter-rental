@@ -89,7 +89,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     if (formData.startDate && formData.endDate) {
       filterAvailableScooters()
     } else if (!formData.startDate && !formData.endDate) {
-      // אם אין תאריכים, הצג את כל הקטנועים הזמינים
+      // אם אין תאריכים, הצג את כל הקטנועים
       setFilteredScooters(availableScooters || [])
     }
   }, [formData.startDate, formData.endDate, availableScooters, isEditing])
@@ -102,7 +102,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
 
     setIsLoadingScooters(true)
     try {
-      // מביא את כל הרנטלים הפעילים והמוזמנים
+      // מביא את כל הרנטלים והאופנועים
       const { getRentals, getScooters } = await import('../../lib/database')
       const [allRentals, allScooters] = await Promise.all([
         getRentals(),
@@ -112,13 +112,13 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
       const requestedStartDate = new Date(formData.startDate)
       const requestedEndDate = new Date(formData.endDate)
       
-      console.log('=== Checking availability (FIXED) ===')
+      console.log('=== Checking availability by DATES (FIXED) ===')
       console.log('Requested period:', {
         start: requestedStartDate.toDateString(),
         end: requestedEndDate.toDateString()
       })
       
-      // מוצא אופנועים שתפוסים בתקופה הנבחרת (כל סוגי ההשכרות)
+      // מוצא אופנועים שתפוסים בתקופה הנבחרת (רק בדיקת תאריכים)
       const occupiedScooterIds = new Set()
       
       allRentals.forEach(rental => {
@@ -127,7 +127,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           return
         }
         
-        // בודק השכרות פעילות ומוזמנות (לא completed)
+        // בודק רק השכרות פעילות ומוזמנות (לא completed)
         if (rental.status === 'active' || rental.status === 'pending') {
           const rentalStartDate = new Date(rental.startDate)
           const rentalEndDate = new Date(rental.endDate)
@@ -138,36 +138,37 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
             period: `${rentalStartDate.toDateString()} - ${rentalEndDate.toDateString()}`
           })
           
-          // בדיקת חפיפה מתוקנת
-          const hasConflict = (
+          // בדיקת חפיפה בתאריכים בלבד
+          const hasDateConflict = (
             requestedStartDate < rentalEndDate && 
             requestedEndDate > rentalStartDate
           )
           
-          if (hasConflict) {
-            console.log(`❌ Conflict found for scooter ${rental.scooterLicense} (${rental.status})`)
+          if (hasDateConflict) {
+            console.log(`❌ DATE Conflict found for scooter ${rental.scooterLicense} (${rental.status})`)
             occupiedScooterIds.add(rental.scooterId)
           } else {
-            console.log(`✅ No conflict for scooter ${rental.scooterLicense}`)
+            console.log(`✅ No date conflict for scooter ${rental.scooterLicense}`)
           }
         }
       })
       
-      // סינון האופנועים הזמינים
+      // כעת נבדק איזה אופנועים זמינים - רק לפי תאריכים!
       const availableScooters = allScooters.filter(scooter => {
-        // אופנוע זמין אם:
-        // 1. הסטטוס שלו available
-        // 2. או שהסטטוס rented אבל הוא לא תפוס בתקופה הנבחרת
-        // 3. במצב עריכה - גם האופנוע הנוכחי זמין לבחירה
+        // במצב עריכה - האופנוע הנוכחי תמיד זמין לבחירה
         const isCurrentScooter = isEditing && initialData && scooter.id === initialData.scooterId
-        const isGenerallyAvailable = scooter.status === 'available'
-        const isNotOccupied = !occupiedScooterIds.has(scooter.id)
         
-        return isCurrentScooter || (isGenerallyAvailable && isNotOccupied) || (scooter.status === 'rented' && isNotOccupied)
+        // בדיקה שהאופנוע לא תפוס בתאריכים הנבחרים
+        const isNotOccupiedInDates = !occupiedScooterIds.has(scooter.id)
+        
+        // אופנוע זמין אם:
+        // 1. זה האופנוע הנוכחי (במצב עריכה) OR
+        // 2. אין לו חפיפה בתאריכים עם השכרות אחרות AND הוא לא במצב maintenance
+        return isCurrentScooter || (isNotOccupiedInDates && scooter.status !== 'maintenance')
       })
       
-      console.log('Available scooters:', availableScooters.map(s => `${s.licensePlate} (${s.status})`))
-      console.log('Occupied scooter IDs:', Array.from(occupiedScooterIds))
+      console.log('Available scooters (by dates):', availableScooters.map(s => `${s.licensePlate} (${s.status})`))
+      console.log('Occupied by dates:', Array.from(occupiedScooterIds))
       
       setFilteredScooters(availableScooters)
       
@@ -190,7 +191,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     return 1200
   }
 
-  // עדכון תאריך סיום אוטומטי (מינימום יום אחד)
+  // עדכון תאריך סיום אוטומטי (מינימום יום אחד) + בדיקה אוטומטית לhazמנה עתידית
   const handleStartDateChange = (newStartDate) => {
     setFormData(prev => {
       const updated = { ...prev, startDate: newStartDate }
@@ -200,6 +201,19 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
         const nextDay = new Date(newStartDate)
         nextDay.setDate(nextDay.getDate() + 1)
         updated.endDate = nextDay.toISOString().split('T')[0]
+      }
+      
+      // בדיקה אוטומטית אם זו הזמנה עתידית
+      const today = new Date().toISOString().split('T')[0]
+      const isFutureDate = newStartDate > today
+      
+      // אם התאריך עתידי - הפוך להזמנה עתידית אוטומטית
+      if (isFutureDate && !isEditing) {
+        updated.isReservation = true
+      }
+      // אם התאריך היום או אתמול - הפוך להשכרה מיידית
+      else if (!isFutureDate && !isEditing) {
+        updated.isReservation = false
       }
       
       return updated
@@ -291,6 +305,16 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
       }
     }
 
+    // אזהרה על השכרה מיידית לתאריך עתידי
+    if (!isEditing && !formData.isReservation && formData.startDate) {
+      const today = new Date().toISOString().split('T')[0]
+      const isFutureDate = formData.startDate > today
+      
+      if (isFutureDate) {
+        newErrors.futureImmediate = 'Future dates should be reservations, not immediate rentals. Please switch to "Future Reservation" or choose today\'s date.'
+      }
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -359,44 +383,80 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           </div>
         )}
 
-        {/* Reservation/Rental Toggle - רק בהוספה חדשה */}
+        {/* Automatic Future Reservation Detection */}
         {!isEditing && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Booking Type</h4>
-            <div className="flex space-x-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="bookingType"
-                  checked={!formData.isReservation}
-                  onChange={() => setFormData(prev => ({ ...prev, isReservation: false }))}
-                  className="mr-2"
-                />
+            <h4 className="text-sm font-medium text-gray-700 mb-3">
+              Booking Type 
+              {formData.startDate && (
+                <span className="ml-2 text-xs text-gray-500">
+                  (Auto-detected based on start date)
+                </span>
+              )}
+            </h4>
+            <div className="space-y-2">
+              {/* Current automatic selection */}
+              <div className={`p-3 rounded-lg border-2 ${
+                formData.isReservation 
+                  ? 'border-blue-300 bg-blue-50' 
+                  : 'border-green-300 bg-green-50'
+              }`}>
                 <div className="flex items-center">
-                  <Clock className="w-4 h-4 mr-1 text-green-600" />
-                  <span className="text-sm font-medium">Immediate Rental</span>
+                  {formData.isReservation ? (
+                    <Calendar className="w-4 h-4 mr-2 text-blue-600" />
+                  ) : (
+                    <Clock className="w-4 h-4 mr-2 text-green-600" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {formData.isReservation ? 'Future Reservation' : 'Immediate Rental'}
+                  </span>
+                  {formData.startDate && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      (Start date: {new Date(formData.startDate).toLocaleDateString()})
+                    </span>
+                  )}
                 </div>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="bookingType"
-                  checked={formData.isReservation}
-                  onChange={() => setFormData(prev => ({ ...prev, isReservation: true }))}
-                  className="mr-2"
-                />
-                <div className="flex items-center">
-                  <Calendar className="w-4 h-4 mr-1 text-blue-600" />
-                  <span className="text-sm font-medium">Future Reservation</span>
+                <p className="text-xs text-gray-600 mt-1 ml-6">
+                  {formData.isReservation 
+                    ? 'Future dates automatically create reservations - no agreement needed until activation'
+                    : 'Today/past dates create immediate rentals - requires signed agreement'
+                  }
+                </p>
+              </div>
+              
+              {/* Manual override option */}
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-xs text-gray-500 mb-2">Manual override (if needed):</p>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bookingType"
+                      checked={!formData.isReservation}
+                      onChange={() => setFormData(prev => ({ ...prev, isReservation: false }))}
+                      className="mr-2"
+                    />
+                    <div className="flex items-center">
+                      <Clock className="w-4 h-4 mr-1 text-green-600" />
+                      <span className="text-sm">Immediate Rental</span>
+                    </div>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="bookingType"
+                      checked={formData.isReservation}
+                      onChange={() => setFormData(prev => ({ ...prev, isReservation: true }))}
+                      className="mr-2"
+                    />
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-1 text-blue-600" />
+                      <span className="text-sm">Future Reservation</span>
+                    </div>
+                  </label>
                 </div>
-              </label>
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              {formData.isReservation 
-                ? 'Reserve a scooter for future dates - will block the scooter but no agreement needed until activation'
-                : 'Rent immediately - requires signed agreement and scooter will be blocked'
-              }
-            </p>
           </div>
         )}        
         
@@ -468,10 +528,10 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 <p className="mt-1 text-sm text-red-600">{errors.scooterId}</p>
               )}
               {formData.startDate && formData.endDate && !isLoadingScooters && filteredScooters.length === 0 && (
-                <p className="mt-1 text-sm text-orange-600">No scooters available for selected dates</p>
+                <p className="mt-1 text-sm text-orange-600">No scooters available for the selected dates</p>
               )}
               {formData.startDate && formData.endDate && !isLoadingScooters && filteredScooters.length > 0 && (
-                <p className="mt-1 text-sm text-green-600">{filteredScooters.length} scooter(s) available</p>
+                <p className="mt-1 text-sm text-green-600">{filteredScooters.length} scooter(s) available for these dates</p>
               )}
             </div>
   
@@ -632,7 +692,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
                 <Calendar className="w-4 h-4 inline mr-1" />
-                This reservation will block the scooter for the selected dates. Agreement signing and passport copy will be required when activating the rental.
+                This reservation will block the scooter only for the selected dates. Agreement signing and passport copy will be required when activating the rental.
               </p>
             </div>
           )}
@@ -714,6 +774,18 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 <AlertCircle className="h-5 w-5 text-red-400" />
                 <div className="ml-3">
                   <p className="text-sm text-red-700">{errors.submit}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Future Date Warning */}
+          {errors.futureImmediate && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-yellow-400" />
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700">{errors.futureImmediate}</p>
                 </div>
               </div>
             </div>
