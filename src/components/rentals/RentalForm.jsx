@@ -35,6 +35,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     { code: '+33', country: 'France', flag: '🇫🇷' },
     { code: '+39', country: 'Italy', flag: '🇮🇹' },
     { code: '+34', country: 'Spain', flag: '🇪🇸' },
+    { code: '+351', country: 'Portugal', flag: '🇵🇹' },
     { code: '+31', country: 'Netherlands', flag: '🇳🇱' },
     { code: '+46', country: 'Sweden', flag: '🇸🇪' },
     { code: '+47', country: 'Norway', flag: '🇳🇴' },
@@ -67,6 +68,13 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     timeOptions.push(timeString)
   }
 
+  // פונקציה לחישוב מחיר יומי לפי כמות ימים (זהה לזו ב-RentalManagement)
+  const calculateDailyRate = (days) => {
+    if (days > 10) return 800
+    if (days > 5) return 1000
+    return 1200
+  }
+
   useEffect(() => {
     if (initialData) {
       const formattedData = {
@@ -83,6 +91,27 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
       setOriginalEndDate(formattedData.endDate)
     }
   }, [initialData])
+
+  // 🔥 NEW: עדכון אוטומטי של מחיר יומי כאשר התאריכים משתנים
+  useEffect(() => {
+    if (formData.startDate && formData.endDate) {
+      const startDate = new Date(formData.startDate)
+      const endDate = new Date(formData.endDate)
+      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))
+      
+      if (days > 0) {
+        const calculatedRate = calculateDailyRate(days)
+        
+        // עדכן רק אם זה לא במצב עריכה או אם המחיר השתנה
+        if (!isEditing || formData.dailyRate !== calculatedRate) {
+          setFormData(prev => ({
+            ...prev,
+            dailyRate: calculatedRate
+          }))
+        }
+      }
+    }
+  }, [formData.startDate, formData.endDate, isEditing])
 
   // פילטור אופנועים זמינים לפי תאריכים - לכל סוגי ההזמנות
   useEffect(() => {
@@ -183,12 +212,6 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     } finally {
       setIsLoadingScooters(false)
     }
-  }
-
-  const calculateDailyRate = (days) => {
-    if (days > 10) return 800
-    if (days > 5) return 1000
-    return 1200
   }
 
   // עדכון תאריך סיום אוטומטי (מינימום יום אחד) + בדיקה אוטומטית לhazמנה עתידית
@@ -328,8 +351,10 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     
     if (days <= 0) return null
 
+    // 🔥 UPDATED: השתמש במחיר שכבר מחושב בטופס
     const calculatedDailyRate = calculateDailyRate(days)
-    const totalAmount = days * calculatedDailyRate
+    const actualDailyRate = formData.dailyRate
+    const totalAmount = days * actualDailyRate
     const originalAmount = days * 1200 // המחיר המקורי לפי התעריף הבסיסי
 
     // אם זו עריכה, חשב את ההפרש מהתאריך המקורי
@@ -344,11 +369,13 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     return {
       days,
       daysExtended,
-      dailyRate: calculatedDailyRate,
+      dailyRate: actualDailyRate,
+      calculatedRate: calculatedDailyRate,
       originalAmount: originalAmount,
       discountedAmount: totalAmount,
       discount: discount > 0 ? discount : 0,
-      deposit: formData.deposit
+      deposit: formData.deposit,
+      hasAutoDiscount: actualDailyRate < 1200
     }
   }
 
@@ -596,7 +623,14 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
   
             {/* Daily Rate */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Daily Rate (฿)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Daily Rate (฿)
+                {rentalDetails && rentalDetails.hasAutoDiscount && (
+                  <span className="ml-2 text-xs text-green-600">
+                    (Auto-discount applied)
+                  </span>
+                )}
+              </label>
               <input
                 type="number"
                 value={formData.dailyRate}
@@ -604,6 +638,11 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
                 required
               />
+              {rentalDetails && rentalDetails.calculatedRate !== formData.dailyRate && (
+                <p className="mt-1 text-xs text-blue-600">
+                  Suggested rate for {rentalDetails.days} days: ฿{rentalDetails.calculatedRate}
+                </p>
+              )}
             </div>
 
             {/* Deposit - רק בהוספה חדשה ושלא reservation */}
@@ -730,7 +769,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                   <span>Your Daily Rate:</span>
                   <span className="font-medium">
                     ฿{rentalDetails.dailyRate.toLocaleString()} 
-                    {rentalDetails.dailyRate < 1200 && " (Discount Applied)"}
+                    {rentalDetails.hasAutoDiscount && " (Auto-discount)"}
                   </span>
                 </div>
                 <div className="flex justify-between">

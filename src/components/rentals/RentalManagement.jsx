@@ -13,6 +13,57 @@ const RentalManagement = ({ onUpdate }) => {
   const [editingRental, setEditingRental] = useState(null)
   const [reservationMode, setReservationMode] = useState(false)
 
+  // פונקציה לחישוב מחיר יומי לפי כמות ימים
+  const calculateDailyRate = (days) => {
+    if (days > 10) return 800
+    if (days > 5) return 1000
+    return 1200
+  }
+
+  // פונקציה לחישוב פרטי השכרה כולל הנחות
+  const calculateRentalPricing = (rental) => {
+    const startDate = new Date(rental.startDate)
+    const endDate = new Date(rental.endDate)
+    const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))
+    
+    if (days <= 0) return {
+      days: 0,
+      originalDailyRate: 1200,
+      calculatedDailyRate: rental.dailyRate || 1200,
+      actualDailyRate: rental.dailyRate || 1200,
+      originalTotal: 0,
+      actualTotal: 0,
+      hasDiscount: false,
+      discount: 0
+    }
+
+    // המחיר המקורי (בסיס)
+    const originalDailyRate = 1200
+    const originalTotal = days * originalDailyRate
+    
+    // המחיר המחושב לפי כמות הימים
+    const calculatedDailyRate = calculateDailyRate(days)
+    
+    // המחיר בפועל (מה שנשמר בדאטבייס)
+    const actualDailyRate = rental.dailyRate || calculatedDailyRate
+    const actualTotal = days * actualDailyRate
+    
+    // בדיקה אם יש הנחה
+    const hasDiscount = actualDailyRate < originalDailyRate
+    const discount = originalTotal - actualTotal
+
+    return {
+      days,
+      originalDailyRate,
+      calculatedDailyRate,
+      actualDailyRate,
+      originalTotal,
+      actualTotal,
+      hasDiscount,
+      discount
+    }
+  }
+
   const fetchRentals = async () => {
     try {
       const data = await getRentals()
@@ -457,8 +508,9 @@ const RentalManagement = ({ onUpdate }) => {
                 {filteredRentals.map((rental) => {
                   const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
                   const displayStatus = isOverdue ? 'overdue' : rental.status
-                  const days = Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))
-                  const totalAmount = rental.dailyRate * days
+                  
+                  // תיקון: שימוש בפונקציה החדשה לחישוב מחירים
+                  const pricing = calculateRentalPricing(rental)
 
                   return (
                     <tr key={rental.id}>
@@ -499,11 +551,43 @@ const RentalManagement = ({ onUpdate }) => {
                         <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
                       </td>
                       
-                      {/* Rental Amount */}
+                      {/* Rental Amount - תיקון: מחירים נכונים עם הנחות */}
                       <td className="px-4 py-4 text-sm">
-                        <div>฿{rental.dailyRate.toLocaleString()}/day</div>
-                        <div className="text-xs text-gray-500">Total: ฿{totalAmount.toLocaleString()}</div>
-                        <div className="text-xs text-blue-500">Deposit: ฿{(rental.deposit || 4000).toLocaleString()}</div>
+                        <div className="space-y-1">
+                          {/* מחיר יומי עם הנחה אם יש */}
+                          <div className="flex items-center">
+                            <span className="font-medium text-gray-900">
+                              ฿{pricing.actualDailyRate.toLocaleString()}/day
+                            </span>
+                            {pricing.hasDiscount && (
+                              <span className="ml-1 text-xs text-green-600">(Discounted)</span>
+                            )}
+                          </div>
+                          
+                          {/* אם יש הנחה, הצג גם המחיר המקורי */}
+                          {pricing.hasDiscount && (
+                            <div className="text-xs text-gray-400 line-through">
+                              ฿{pricing.originalDailyRate.toLocaleString()}/day
+                            </div>
+                          )}
+                          
+                          {/* סכום כולל */}
+                          <div className="text-sm font-medium text-gray-900">
+                            Total: ฿{pricing.actualTotal.toLocaleString()}
+                          </div>
+                          
+                          {/* הנחה בסכום */}
+                          {pricing.hasDiscount && pricing.discount > 0 && (
+                            <div className="text-xs text-green-600">
+                              Save: ฿{pricing.discount.toLocaleString()}
+                            </div>
+                          )}
+                          
+                          {/* פיקדון */}
+                          <div className="text-xs text-blue-500">
+                            Deposit: ฿{(rental.deposit || 4000).toLocaleString()}
+                          </div>
+                        </div>
                       </td>
                       
                       {/* Status */}
@@ -582,8 +666,9 @@ const RentalManagement = ({ onUpdate }) => {
             {filteredRentals.map((rental) => {
               const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
               const displayStatus = isOverdue ? 'overdue' : rental.status
-              const days = Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))
-              const totalAmount = rental.dailyRate * days
+              
+              // תיקון: שימוש בפונקציה החדשה לחישוב מחירים
+              const pricing = calculateRentalPricing(rental)
 
               return (
                 <div key={rental.id} className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
@@ -637,14 +722,40 @@ const RentalManagement = ({ onUpdate }) => {
                       <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
                       <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
                     </div>
+                    
+                    {/* מחיר יומי - תיקון */}
                     <div>
                       <span className="text-gray-500">Daily Rate:</span>
-                      <div className="font-medium">฿{rental.dailyRate.toLocaleString()}</div>
+                      <div className="space-y-1">
+                        <div className="font-medium text-green-600">
+                          ฿{pricing.actualDailyRate.toLocaleString()}
+                          {pricing.hasDiscount && (
+                            <span className="text-xs ml-1">(Discounted)</span>
+                          )}
+                        </div>
+                        {pricing.hasDiscount && (
+                          <div className="text-xs text-gray-400 line-through">
+                            Was: ฿{pricing.originalDailyRate.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* סכום כולל - תיקון */}
                     <div>
                       <span className="text-gray-500">Rental Total:</span>
-                      <div className="font-medium text-lg">฿{totalAmount.toLocaleString()}</div>
+                      <div className="space-y-1">
+                        <div className="font-medium text-lg text-gray-900">
+                          ฿{pricing.actualTotal.toLocaleString()}
+                        </div>
+                        {pricing.hasDiscount && pricing.discount > 0 && (
+                          <div className="text-xs text-green-600">
+                            Saved: ฿{pricing.discount.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    
                     <div className="col-span-2">
                       <span className="text-gray-500">Deposit:</span>
                       <div className="font-medium text-blue-600">฿{(rental.deposit || 4000).toLocaleString()}</div>
