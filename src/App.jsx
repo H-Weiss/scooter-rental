@@ -23,7 +23,7 @@ function LoadingScreen() {
   )
 }
 
-// Dashboard Component
+// Dashboard Component - עם טיפול נכון ב-loading state
 function Dashboard() {
   const { statistics } = useStatistics()
   
@@ -33,34 +33,37 @@ function Dashboard() {
       name: 'Available Scooters', 
       value: statistics.isLoading ? '...' : statistics.availableScooters.toString(), 
       icon: Bike, 
-      color: 'text-blue-500' 
+      color: 'text-blue-500',
+      isLoading: statistics.isLoading
     },
     { 
       id: 'rented', 
       name: 'Active Rentals', 
       value: statistics.isLoading ? '...' : statistics.activeRentals.toString(), 
       icon: Calendar, 
-      color: 'text-green-500' 
+      color: 'text-green-500',
+      isLoading: statistics.isLoading
     },
     { 
       id: 'maintenance', 
       name: 'In Maintenance', 
       value: statistics.isLoading ? '...' : statistics.maintenanceScooters.toString(), 
       icon: Wrench, 
-      color: 'text-yellow-500' 
+      color: 'text-yellow-500',
+      isLoading: statistics.isLoading
     },
     { 
       id: 'customers', 
       name: 'Total Customers', 
       value: statistics.isLoading ? '...' : statistics.totalCustomers.toString(), 
       icon: Users, 
-      color: 'text-purple-500' 
+      color: 'text-purple-500',
+      isLoading: statistics.isLoading
     }
   ]
 
   return (
     <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-6">
-      {/* סטטיסטיקות כלליות - 4 קלפים בלבד */}
       <div className="grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.id} className="bg-white overflow-hidden shadow rounded-lg">
@@ -75,7 +78,7 @@ function Dashboard() {
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-base sm:text-lg font-semibold text-gray-900">
-                      {statistics.isLoading ? (
+                      {stat.isLoading ? (
                         <div className="animate-pulse bg-gray-200 h-4 sm:h-6 w-6 sm:w-8 rounded"></div>
                       ) : (
                         stat.value
@@ -92,7 +95,7 @@ function Dashboard() {
   )
 }
 
-// Calendar Section Component - תיקון העברת הנתונים
+// Calendar Section Component - עם טיפול משופר בנתונים
 function CalendarSection({ refreshTrigger }) {
   const [rentals, setRentals] = useState([])
   const [scooters, setScooters] = useState([])
@@ -102,20 +105,37 @@ function CalendarSection({ refreshTrigger }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const loadData = async () => {
+  // גישה לנתונים מ-StatisticsProvider אם זמינים
+  const { rawData } = useStatistics()
+
+  const loadData = async (useCache = false) => {
     try {
       setIsLoading(true)
       setError(null)
       
-      console.log('=== CalendarSection: Loading data ===')
+      console.log('=== CalendarSection: Loading data ===', { useCache })
       
-      const [rentalsData, scootersData] = await Promise.all([
-        getRentals(),
-        getScooters()
-      ])
+      let rentalsData, scootersData
+
+      // נסה להשתמש בנתונים מה-cache אם זמינים
+      if (useCache && rawData?.isDataLoaded) {
+        console.log('Using cached data from StatisticsProvider')
+        rentalsData = rawData.rentals
+        scootersData = rawData.scooters
+      } else {
+        console.log('Fetching fresh data from database')
+        const [fetchedRentals, fetchedScooters] = await Promise.all([
+          getRentals(),
+          getScooters()
+        ])
+        rentalsData = fetchedRentals
+        scootersData = fetchedScooters
+      }
       
-      console.log('CalendarSection: Rentals loaded:', rentalsData)
-      console.log('CalendarSection: Scooters loaded:', scootersData)
+      console.log('CalendarSection: Data loaded:', {
+        rentals: rentalsData?.length || 0,
+        scooters: scootersData?.length || 0
+      })
       
       setRentals(rentalsData || [])
       setScooters(scootersData || [])
@@ -127,17 +147,28 @@ function CalendarSection({ refreshTrigger }) {
     }
   }
 
+  // טעינה ראשונית
   useEffect(() => {
-    loadData()
+    loadData(true) // נסה קודם cache
   }, [])
 
   // רענון כאשר refreshTrigger משתנה
   useEffect(() => {
     if (refreshTrigger > 0) {
       console.log('CalendarSection: Refresh triggered')
-      loadData()
+      loadData(false) // טעינה חדשה מהדאטבייס
     }
   }, [refreshTrigger])
+
+  // שימוש בנתונים מ-cache אם זמינים בטעינה הראשונית
+  useEffect(() => {
+    if (isLoading && rawData?.isDataLoaded && rentals.length === 0 && scooters.length === 0) {
+      console.log('CalendarSection: Using StatisticsProvider cache for initial load')
+      setRentals(rawData.rentals || [])
+      setScooters(rawData.scooters || [])
+      setIsLoading(false)
+    }
+  }, [rawData, isLoading, rentals.length, scooters.length])
 
   const handleNewRental = (dateInfo) => {
     setPrefilledDate(dateInfo)
@@ -166,7 +197,7 @@ function CalendarSection({ refreshTrigger }) {
         <div className="text-center text-red-600">
           <p>Error: {error}</p>
           <button 
-            onClick={loadData}
+            onClick={() => loadData(false)}
             className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Retry
@@ -209,7 +240,7 @@ function MainApp() {
   const ScooterManagementWrapper = () => {
     const { refreshStatistics } = useStatistics()
     return <ScooterManagement onUpdate={() => {
-      refreshStatistics()
+      refreshStatistics(true) // רק רענון ידני אחרי פעולות
       refreshCalendar()
     }} />
   }
@@ -217,14 +248,13 @@ function MainApp() {
   const RentalManagementWrapper = () => {
     const { refreshStatistics } = useStatistics()
     return <RentalManagement onUpdate={() => {
-      refreshStatistics()
+      refreshStatistics(true) // רק רענון ידני אחרי פעולות
       refreshCalendar()
     }} />
   }
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header - ללא כפתור מחיקה */}
       <Header />
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
@@ -234,7 +264,7 @@ function MainApp() {
         {/* Calendar Section */}
         <CalendarSection refreshTrigger={calendarRefreshTrigger} />
 
-        {/* Navigation - מותאם למובייל */}
+        {/* Navigation */}
         <div className="bg-white shadow mb-6 overflow-x-auto">
           <nav className="flex space-x-2 sm:space-x-4 px-4 min-w-max" aria-label="Tabs">
             {tabs.map((tab) => (

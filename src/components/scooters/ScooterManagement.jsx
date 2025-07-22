@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { PlusCircle, PencilIcon, Trash2Icon, Settings } from 'lucide-react'
+import { PlusCircle, PencilIcon, Trash2Icon, Settings, RefreshCw } from 'lucide-react'
 import ScooterForm from './ScooterForm'
-import { getScooters, addScooter, updateScooter, deleteScooter } from '../../lib/database'
+import { getScooters, addScooter, updateScooter, deleteScooter, getRentals } from '../../lib/database'
+import useStatistics from '../../context/useStatistics'
 
 const ScooterManagement = ({ onUpdate }) => {
   const [scooters, setScooters] = useState([])
@@ -9,32 +10,159 @@ const ScooterManagement = ({ onUpdate }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editingScooter, setEditingScooter] = useState(null)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
 
-  const fetchScooters = async () => {
+  // גישה לנתונים מ-StatisticsProvider
+  const { rawData, refreshStatistics } = useStatistics()
+
+  // פונקציה לעדכון חכם של סטטוס אופנוע לפי תאריכי השכרות
+  const updateScooterStatusSmart = async (scooterId, allRentals) => {
     try {
-      const data = await getScooters()
-      setScooters(data || [])
-      setError(null)
+      const scooter = scooters.find(s => s.id === scooterId)
+      if (!scooter) return scooter
+
+      // מצא את כל ההשכרות של האופנוע הזה
+      const scooterRentals = allRentals.filter(r => 
+        r.scooterId === scooterId && 
+        (r.status === 'active' || r.status === 'pending')
+      )
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      // בדוק אם יש השכרה פעילה שכוללת את היום הנוכחי
+      const currentRental = scooterRentals.find(r => {
+        const startDate = new Date(r.startDate)
+        const endDate = new Date(r.endDate)
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(23, 59, 59, 999)
+        
+        const isActivePeriod = today >= startDate && today <= endDate
+        const isActiveStatus = r.status === 'active'
+        
+        return isActivePeriod && isActiveStatus
+      })
+
+      let newStatus = 'available'
+
+      if (currentRental) {
+        newStatus = 'rented'
+        console.log(`Scooter ${scooter.licensePlate} set to RENTED due to active rental:`, currentRental.orderNumber)
+      } else {
+        // בדוק אם האופנוע במצב maintenance
+        if (scooter.status === 'maintenance') {
+          newStatus = 'maintenance' // שמור על maintenance אם זה הוגדר ידנית
+        } else {
+          newStatus = 'available'
+        }
+        console.log(`Scooter ${scooter.licensePlate} set to ${newStatus.toUpperCase()}`)
+      }
+
+      // עדכן את הסטטוס רק אם השתנה
+      if (scooter.status !== newStatus) {
+        console.log(`Updating scooter ${scooter.licensePlate} status from ${scooter.status} to ${newStatus}`)
+        
+        const updatedScooter = await updateScooter({
+          ...scooter,
+          status: newStatus
+        })
+        
+        return updatedScooter
+      }
+      
+      return scooter
     } catch (error) {
-      console.error('Error fetching scooters:', error)
-      setError('Failed to load scooters')
+      console.error('Error updating scooter status:', error)
+      return scooter
     }
   }
 
-  useEffect(() => {
-    const loadData = async () => {
+  // פונקציה לעדכון כל סטטוסי האופנועים
+  const updateAllScootersStatus = async () => {
+    try {
+      setIsUpdatingStatus(true)
+      console.log('=== Updating all scooters status in ScooterManagement ===')
+      
+      // השתמש בנתונים מ-cache אם זמינים, אחרת טען מחדש
+      let allRentals
+      if (rawData?.isDataLoaded) {
+        allRentals = rawData.rentals
+        console.log('Using cached rentals data for status update')
+      } else {
+        allRentals = await getRentals()
+        console.log('Fetched fresh rentals data for status update')
+      }
+      
+      const updatedScooters = []
+      
+      for (const scooter of scooters) {
+        const updatedScooter = await updateScooterStatusSmart(scooter.id, allRentals)
+        updatedScooters.push(updatedScooter)
+      }
+      
+      setScooters(updatedScooters)
+      console.log('=== Finished updating all scooters status ===')
+      
+      // רענן את הסטטיסטיקות גם
+      await refreshStatistics(true)
+      
+    } catch (error) {
+      console.error('Error updating all scooters status:', error)
+      setError('Failed to update scooters status')
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  const fetchScooters = async (useCache = false) => {
+    try {
       setIsLoading(true)
-      await fetchScooters()
+      setError(null)
+      
+      let scootersData
+      
+      // נסה להשתמש בנתונים מ-cache אם זמינים
+      if (useCache && rawData?.isDataLoaded) {
+        console.log('ScooterManagement: Using cached scooters data')
+        scootersData = rawData.scooters
+      } else {
+        console.log('ScooterManagement: Fetching fresh scooters data')
+        scootersData = await getScooters()
+      }
+      
+      setScooters(scootersData || [])
+      console.log('ScooterManagement: Scooters loaded:', scootersData?.length || 0)
+      
+    } catch (error) {
+      console.error('Error fetching scooters:', error)
+      setError('Failed to load scooters')
+    } finally {
       setIsLoading(false)
     }
-    loadData()
+  }
+
+  // טעינה ראשונית בלבד
+  useEffect(() => {
+    fetchScooters(true) // נסה קודם cache
   }, [])
+
+  // שימוש בנתונים מ-cache רק בטעינה הראשונית
+  useEffect(() => {
+    if (isLoading && rawData?.isDataLoaded && scooters.length === 0) {
+      console.log('ScooterManagement: Using StatisticsProvider cache for initial load')
+      setScooters(rawData.scooters || [])
+      setIsLoading(false)
+    }
+  }, [rawData, isLoading, scooters.length])
 
   const handleCreateScooter = async (formData) => {
     try {
       const newScooter = await addScooter(formData)
       setScooters(prev => [newScooter, ...prev])
       setShowForm(false)
+      
+      // רענן סטטיסטיקות
+      await refreshStatistics(true)
       onUpdate?.()
     } catch (error) {
       console.error('Error creating scooter:', error)
@@ -52,6 +180,9 @@ const ScooterManagement = ({ onUpdate }) => {
       setScooters(prev => prev.map(s => s.id === updatedScooter.id ? updatedScooter : s))
       setShowForm(false)
       setEditingScooter(null)
+      
+      // רענן סטטיסטיקות
+      await refreshStatistics(true)
       onUpdate?.()
     } catch (error) {
       console.error('Error updating scooter:', error)
@@ -69,6 +200,9 @@ const ScooterManagement = ({ onUpdate }) => {
       try {
         await deleteScooter(scooter.id)
         setScooters(prev => prev.filter(s => s.id !== scooter.id))
+        
+        // רענן סטטיסטיקות
+        await refreshStatistics(true)
         onUpdate?.()
       } catch (error) {
         console.error('Error deleting scooter:', error)
@@ -103,6 +237,14 @@ const ScooterManagement = ({ onUpdate }) => {
     }
   }
 
+  // חישוב סטטיסטיקות מקומיות
+  const localStats = {
+    total: scooters.length,
+    available: scooters.filter(s => s.status === 'available').length,
+    rented: scooters.filter(s => s.status === 'rented').length,
+    maintenance: scooters.filter(s => s.status === 'maintenance').length
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -123,7 +265,7 @@ const ScooterManagement = ({ onUpdate }) => {
             <button 
               onClick={() => {
                 setError(null)
-                fetchScooters()
+                fetchScooters(false)
               }}
               className="mt-2 text-sm text-red-600 underline hover:text-red-800"
             >
@@ -137,19 +279,43 @@ const ScooterManagement = ({ onUpdate }) => {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header */}
+      {/* Header with Stats */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-gray-200 pb-4">
-        <h2 className="text-lg font-medium text-gray-900">Scooter Management</h2>
-        <button
-          onClick={() => {
-            setEditingScooter(null)
-            setShowForm(true)
-          }}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Add Scooter
-        </button>
+        <div>
+          <h2 className="text-lg font-medium text-gray-900">Scooter Management</h2>
+          <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+            <span>Total: {localStats.total}</span>
+            <span className="text-green-600">Available: {localStats.available}</span>
+            <span className="text-blue-600">Rented: {localStats.rented}</span>
+            <span className="text-yellow-600">Maintenance: {localStats.maintenance}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              fetchScooters(false) // טעינה מחדש ידנית
+              updateAllScootersStatus()
+            }}
+            disabled={isUpdatingStatus}
+            className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            title="Refresh scooters and update statuses"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingStatus ? 'animate-spin' : ''}`} />
+            {isUpdatingStatus ? 'Updating...' : 'Refresh'}
+          </button>
+          
+          <button
+            onClick={() => {
+              setEditingScooter(null)
+              setShowForm(true)
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add Scooter
+          </button>
+        </div>
       </div>
 
       {/* Scooters Display */}

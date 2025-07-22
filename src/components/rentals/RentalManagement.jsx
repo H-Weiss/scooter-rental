@@ -2,16 +2,20 @@ import { useEffect, useState } from 'react'
 import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle } from 'lucide-react'
 import RentalForm from '../rentals/RentalForm'
 import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
+import useStatistics from '../../context/useStatistics'
 
 const RentalManagement = ({ onUpdate }) => {
   const [rentals, setRentals] = useState([])
-  const [allScooters, setAllScooters] = useState([]) // שינוי: כל האופנועים במקום רק הזמינים
+  const [allScooters, setAllScooters] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('active')
   const [editingRental, setEditingRental] = useState(null)
   const [reservationMode, setReservationMode] = useState(false)
+
+  // גישה לנתונים מ-StatisticsProvider
+  const { rawData } = useStatistics()
 
   // פונקציה לחישוב מחיר יומי לפי כמות ימים
   const calculateDailyRate = (days) => {
@@ -37,18 +41,11 @@ const RentalManagement = ({ onUpdate }) => {
       discount: 0
     }
 
-    // המחיר המקורי (בסיס)
     const originalDailyRate = 1200
     const originalTotal = days * originalDailyRate
-    
-    // המחיר המחושב לפי כמות הימים
     const calculatedDailyRate = calculateDailyRate(days)
-    
-    // המחיר בפועל (מה שנשמר בדאטבייס)
     const actualDailyRate = rental.dailyRate || calculatedDailyRate
     const actualTotal = days * actualDailyRate
-    
-    // בדיקה אם יש הנחה
     const hasDiscount = actualDailyRate < originalDailyRate
     const discount = originalTotal - actualTotal
 
@@ -64,10 +61,19 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
-  const fetchRentals = async () => {
+  const fetchRentals = async (useCache = false) => {
     try {
-      const data = await getRentals()
-      setRentals(data || [])
+      let rentalsData
+
+      if (useCache && rawData?.isDataLoaded) {
+        console.log('RentalManagement: Using cached rentals data')
+        rentalsData = rawData.rentals
+      } else {
+        console.log('RentalManagement: Fetching fresh rentals data')
+        rentalsData = await getRentals()
+      }
+
+      setRentals(rentalsData || [])
       setError(null)
     } catch (error) {
       console.error('Error fetching rentals:', error)
@@ -75,11 +81,19 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
-  // שינוי: מביא את כל האופנועים במקום רק הזמינים
-  const fetchAllScooters = async () => {
+  const fetchAllScooters = async (useCache = false) => {
     try {
-      const scooters = await getScooters()
-      setAllScooters(scooters || [])
+      let scootersData
+
+      if (useCache && rawData?.isDataLoaded) {
+        console.log('RentalManagement: Using cached scooters data')
+        scootersData = rawData.scooters
+      } else {
+        console.log('RentalManagement: Fetching fresh scooters data')
+        scootersData = await getScooters()
+      }
+
+      setAllScooters(scootersData || [])
       setError(null)
     } catch (error) {
       console.error('Error fetching scooters:', error)
@@ -87,36 +101,25 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
+  // טעינה ראשונית בלבד
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
-      await Promise.all([fetchRentals(), fetchAllScooters()])
+      await Promise.all([fetchRentals(true), fetchAllScooters(true)])
       setIsLoading(false)
     }
     loadData()
   }, [])
-  
-  // 🔥 NEW: עדכון סטטוס כל האופנועים אחרי טעינת הנתונים
-  useEffect(() => {
-    if (allScooters.length > 0 && rentals.length >= 0) {
-      console.log('Data loaded, updating all scooters status...')
-      updateAllScootersStatus()
-    }
-  }, [allScooters.length, rentals.length])
 
-  const updateAllScootersStatus = async () => {
-    try {
-      console.log('=== Updating all scooters status ===')
-      
-      for (const scooter of allScooters) {
-        await updateScooterStatusSmart(scooter.id)
-      }
-      
-      console.log('=== Finished updating all scooters status ===')
-    } catch (error) {
-      console.error('Error updating all scooters status:', error)
+  // שימוש בנתונים מ-cache רק בטעינה הראשונית
+  useEffect(() => {
+    if (isLoading && rawData?.isDataLoaded && rentals.length === 0 && allScooters.length === 0) {
+      console.log('RentalManagement: Using StatisticsProvider cache for initial load')
+      setRentals(rawData.rentals || [])
+      setAllScooters(rawData.scooters || [])
+      setIsLoading(false)
     }
-  }
+  }, [rawData, isLoading, rentals.length, allScooters.length])
 
   // פונקציה לעדכון חכם של סטטוס אופנוע לפי תאריכי השכרות
   const updateScooterStatusSmart = async (scooterId) => {
@@ -124,7 +127,6 @@ const RentalManagement = ({ onUpdate }) => {
       const scooter = allScooters.find(s => s.id === scooterId)
       if (!scooter) return
 
-      // מצא את כל ההשכרות של האופנוע הזה
       const scooterRentals = rentals.filter(r => 
         r.scooterId === scooterId && 
         (r.status === 'active' || r.status === 'pending')
@@ -133,14 +135,12 @@ const RentalManagement = ({ onUpdate }) => {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      // 🔥 FIX: בדוק אם יש השכרה פעילה שכוללת את היום הנוכחי
       const currentRental = scooterRentals.find(r => {
         const startDate = new Date(r.startDate)
         const endDate = new Date(r.endDate)
         startDate.setHours(0, 0, 0, 0)
         endDate.setHours(23, 59, 59, 999)
         
-        // 🔥 FIX: השכרה פעילה אם היום בין תאריך ההתחלה והסיום
         const isActivePeriod = today >= startDate && today <= endDate
         const isActiveStatus = r.status === 'active'
         
@@ -153,42 +153,22 @@ const RentalManagement = ({ onUpdate }) => {
       if (currentRental) {
         newStatus = 'rented'
         lastRentalId = currentRental.id
-        console.log(`Scooter ${scooter.licensePlate} set to RENTED due to active rental:`, currentRental.orderNumber)
-      } else {
-        // 🔥 FIX: בדוק אם יש השכרות עתידיות (pending) שמתחילות בעתיד
-        const futureRentals = scooterRentals.filter(r => {
-          const startDate = new Date(r.startDate)
-          startDate.setHours(0, 0, 0, 0)
-          return startDate > today && r.status === 'pending'
-        })
-        
-        if (futureRentals.length > 0) {
-          newStatus = 'available' // זמין עד להשכרה עתידית
-          console.log(`Scooter ${scooter.licensePlate} set to AVAILABLE (has future reservations)`)
-        } else {
-          newStatus = 'available'
-          console.log(`Scooter ${scooter.licensePlate} set to AVAILABLE (no active rentals)`)
-        }
+      } else if (scooter.status === 'maintenance') {
+        newStatus = 'maintenance'
       }
 
-      // עדכן את הסטטוס רק אם השתנה
       if (scooter.status !== newStatus) {
-        console.log(`Updating scooter ${scooter.licensePlate} status from ${scooter.status} to ${newStatus}`)
-        
         await updateScooter({
           ...scooter,
           status: newStatus,
           lastRentalId
         })
         
-        // עדכן גם את המערך המקומי
         setAllScooters(prev => prev.map(s => 
           s.id === scooterId 
             ? { ...s, status: newStatus, lastRentalId }
             : s
         ))
-      } else {
-        console.log(`Scooter ${scooter.licensePlate} status unchanged: ${newStatus}`)
       }
     } catch (error) {
       console.error('Error updating scooter status:', error)
@@ -197,13 +177,11 @@ const RentalManagement = ({ onUpdate }) => {
 
   const handleCreateRental = async (formData) => {
     try {
-      // מציאת הקטנוע הנבחר
       const selectedScooter = allScooters.find(s => s.id === formData.scooterId)
       if (!selectedScooter) {
         throw new Error('Selected scooter not found')
       }
       
-      // יצירת השכרה חדשה עם כל השדות החדשים
       const newRental = await addRental({
         ...formData,
         scooterLicense: selectedScooter.licensePlate,
@@ -213,10 +191,7 @@ const RentalManagement = ({ onUpdate }) => {
       })
   
       setRentals(prev => [...prev, newRental])
-      
-      // עדכון חכם של סטטוס האופנוע
       await updateScooterStatusSmart(selectedScooter.id)
-      await fetchAllScooters()
       
       setShowForm(false)
       setReservationMode(false)
@@ -230,37 +205,23 @@ const RentalManagement = ({ onUpdate }) => {
   const handleEditRental = async (formData) => {
     try {
       const originalRental = editingRental
-      
-      // בדיקה אם השתנה האופנוע
       const scooterChanged = originalRental.scooterId !== formData.scooterId
       
-      console.log('=== Edit Rental Debug ===')
-      console.log('Original scooter ID:', originalRental.scooterId)
-      console.log('New scooter ID:', formData.scooterId)
-      console.log('Scooter changed:', scooterChanged)
-      
-      // עדכון ההשכרה עם כל הנתונים החדשים
       const updatedRental = await updateRental({
         ...originalRental,
         ...formData,
         updatedAt: new Date().toISOString()
       })
       
-      console.log('Updated rental:', updatedRental)
-      
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
       
-      // עדכון חכם של סטטוס האופנועים הרלוונטיים
       if (scooterChanged) {
-        // עדכן את שני האופנועים
         await updateScooterStatusSmart(originalRental.scooterId)
         await updateScooterStatusSmart(formData.scooterId)
       } else {
-        // עדכן רק את האופנוע הנוכחי
         await updateScooterStatusSmart(formData.scooterId)
       }
       
-      await fetchAllScooters()
       setShowForm(false)
       setEditingRental(null)
       onUpdate?.()
@@ -276,11 +237,9 @@ const RentalManagement = ({ onUpdate }) => {
     setShowForm(true)
   }
 
-  // פונקציה חדשה להפעלת הזמנה עתידית
   const handleActivateReservation = async (rental) => {
     if (window.confirm(`Activate reservation #${rental.orderNumber}? This will require agreement signing.`)) {
       try {
-        // עדכון ההזמנה לפעילה
         const updatedRental = await updateRental({
           ...rental,
           status: 'active',
@@ -288,13 +247,9 @@ const RentalManagement = ({ onUpdate }) => {
         })
         
         setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
-        
-        // עדכון חכם של סטטוס האופנוע
         await updateScooterStatusSmart(rental.scooterId)
-        await fetchAllScooters()
         
         onUpdate?.()
-        
         alert(`Reservation #${rental.orderNumber} has been activated! Don't forget to:\n• Get signed rental agreement\n• Take passport copy\n• Collect deposit`)
         
       } catch (error) {
@@ -306,7 +261,6 @@ const RentalManagement = ({ onUpdate }) => {
 
   const handleCompleteRental = async (rental) => {
     try {
-      // עדכון השכרה
       const updatedRental = await updateRental({
         ...rental,
         status: 'completed',
@@ -314,10 +268,7 @@ const RentalManagement = ({ onUpdate }) => {
       })
       
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
-      
-      // עדכון חכם של סטטוס האופנוע
       await updateScooterStatusSmart(rental.scooterId)
-      await fetchAllScooters()
       
       onUpdate?.()
     } catch (error) {
@@ -330,13 +281,8 @@ const RentalManagement = ({ onUpdate }) => {
     if (window.confirm(`Are you sure you want to delete rental #${rental.orderNumber}?`)) {
       try {
         await deleteRental(rental.id)
-        
-        // עדכון הממשק
         setRentals(prev => prev.filter(r => r.id !== rental.id))
-        
-        // עדכון חכם של סטטוס האופנוע
         await updateScooterStatusSmart(rental.scooterId)
-        await fetchAllScooters()
         
         onUpdate?.()
       } catch (error) {
@@ -398,10 +344,8 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
-  // Calculate statistics - moved BEFORE it's used
   const stats = calculateStatistics()
 
-  // Filter rentals by active tab - עם מיון לפי תאריך
   const filteredRentals = rentals
     .filter(rental => {
       if (activeTab === 'pending') {
@@ -412,15 +356,11 @@ const RentalManagement = ({ onUpdate }) => {
       return rental.status === 'completed'
     })
     .sort((a, b) => {
-      // מיון לפי תאריך תחילת ההשכרה
       if (activeTab === 'pending') {
-        // עבור הזמנות עתידיות - מהקרוב ביותר לרחוק ביותר
         return new Date(a.startDate) - new Date(b.startDate)
       } else if (activeTab === 'active') {
-        // עבור השכרות פעילות - מהקרוב ביותר לסיום (לפי endDate)
         return new Date(a.endDate) - new Date(b.endDate)
       } else {
-        // עבור השכרות שהושלמו - מהאחרון ביותר לראשון (לפי completedAt או createdAt)
         const aDate = new Date(a.completedAt || a.createdAt)
         const bDate = new Date(b.completedAt || b.createdAt)
         return bDate - aDate
@@ -511,17 +451,10 @@ const RentalManagement = ({ onUpdate }) => {
         </div>
         
         <div className="flex items-center space-x-2">
-        <button
-    onClick={updateAllScootersStatus}
-    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-    title="Update all scooter statuses"
-  >
-    🔄 Sync Status
-          </button>
           <button
             onClick={() => {
               setEditingRental(null)
-              setReservationMode(false) // השאר false - הטופס יחליט אוטומטית
+              setReservationMode(false)
               setShowForm(true)
             }}
             className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -581,30 +514,21 @@ const RentalManagement = ({ onUpdate }) => {
                 {filteredRentals.map((rental) => {
                   const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
                   const displayStatus = isOverdue ? 'overdue' : rental.status
-                  
-                  // תיקון: שימוש בפונקציה החדשה לחישוב מחירים
                   const pricing = calculateRentalPricing(rental)
 
                   return (
                     <tr key={rental.id}>
-                      {/* Order Number */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {rental.orderNumber}
                       </td>
-                      
-                      {/* Scooter */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
                         <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
                         <div className="text-xs text-gray-500">{rental.scooterColor}</div>
                       </td>
-                      
-                      {/* Customer */}
                       <td className="px-4 py-4 text-sm">
                         <div className="font-medium text-gray-900">{rental.customerName}</div>
                         <div className="text-xs text-gray-500">{rental.passportNumber}</div>
                       </td>
-                      
-                      {/* Contact (WhatsApp) */}
                       <td className="px-4 py-4 text-sm">
                         {rental.whatsappNumber ? (
                           <>
@@ -617,17 +541,12 @@ const RentalManagement = ({ onUpdate }) => {
                           <div className="text-xs text-gray-400">No WhatsApp</div>
                         )}
                       </td>
-                      
-                      {/* Dates & Times */}
                       <td className="px-4 py-4 text-sm">
                         <div>{new Date(rental.startDate).toLocaleDateString()} {rental.startTime || '09:00'}</div>
                         <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
                       </td>
-                      
-                      {/* Rental Amount - תיקון: מחירים נכונים עם הנחות */}
                       <td className="px-4 py-4 text-sm">
                         <div className="space-y-1">
-                          {/* מחיר יומי עם הנחה אם יש */}
                           <div className="flex items-center">
                             <span className="font-medium text-gray-900">
                               ฿{pricing.actualDailyRate.toLocaleString()}/day
@@ -636,41 +555,29 @@ const RentalManagement = ({ onUpdate }) => {
                               <span className="ml-1 text-xs text-green-600">(Discounted)</span>
                             )}
                           </div>
-                          
-                          {/* אם יש הנחה, הצג גם המחיר המקורי */}
                           {pricing.hasDiscount && (
                             <div className="text-xs text-gray-400 line-through">
                               ฿{pricing.originalDailyRate.toLocaleString()}/day
                             </div>
                           )}
-                          
-                          {/* סכום כולל */}
                           <div className="text-sm font-medium text-gray-900">
                             Total: ฿{pricing.actualTotal.toLocaleString()}
                           </div>
-                          
-                          {/* הנחה בסכום */}
                           {pricing.hasDiscount && pricing.discount > 0 && (
                             <div className="text-xs text-green-600">
                               Save: ฿{pricing.discount.toLocaleString()}
                             </div>
                           )}
-                          
-                          {/* פיקדון */}
                           <div className="text-xs text-blue-500">
                             Deposit: ฿{(rental.deposit || 4000).toLocaleString()}
                           </div>
                         </div>
                       </td>
-                      
-                      {/* Status */}
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
                           {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
                         </span>
                       </td>
-                      
-                      {/* Payment Status */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
                         <button 
                           onClick={() => handleUpdatePaymentStatus(rental)}
@@ -688,8 +595,6 @@ const RentalManagement = ({ onUpdate }) => {
                           )}
                         </button>
                       </td>
-                      
-                      {/* Actions */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           <button 
@@ -739,13 +644,10 @@ const RentalManagement = ({ onUpdate }) => {
             {filteredRentals.map((rental) => {
               const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
               const displayStatus = isOverdue ? 'overdue' : rental.status
-              
-              // תיקון: שימוש בפונקציה החדשה לחישוב מחירים
               const pricing = calculateRentalPricing(rental)
 
               return (
                 <div key={rental.id} className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
-                  {/* Header */}
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="text-lg font-medium text-gray-900">
@@ -772,7 +674,6 @@ const RentalManagement = ({ onUpdate }) => {
                     </div>
                   </div>
 
-                  {/* Customer Info */}
                   <div className="mb-3 pb-3 border-b border-gray-200">
                     <h4 className="font-medium text-gray-900">{rental.customerName}</h4>
                     <p className="text-sm text-gray-500">{rental.passportNumber}</p>
@@ -783,7 +684,6 @@ const RentalManagement = ({ onUpdate }) => {
                     )}
                   </div>
 
-                  {/* Rental Details */}
                   <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                     <div>
                       <span className="text-gray-500">Start:</span>
@@ -795,8 +695,6 @@ const RentalManagement = ({ onUpdate }) => {
                       <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
                       <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
                     </div>
-                    
-                    {/* מחיר יומי - תיקון */}
                     <div>
                       <span className="text-gray-500">Daily Rate:</span>
                       <div className="space-y-1">
@@ -813,8 +711,6 @@ const RentalManagement = ({ onUpdate }) => {
                         )}
                       </div>
                     </div>
-                    
-                    {/* סכום כולל - תיקון */}
                     <div>
                       <span className="text-gray-500">Rental Total:</span>
                       <div className="space-y-1">
@@ -828,14 +724,12 @@ const RentalManagement = ({ onUpdate }) => {
                         )}
                       </div>
                     </div>
-                    
                     <div className="col-span-2">
                       <span className="text-gray-500">Deposit:</span>
                       <div className="font-medium text-blue-600">฿{(rental.deposit || 4000).toLocaleString()}</div>
                     </div>
                   </div>
 
-                  {/* Notes if available */}
                   {rental.notes && (
                     <div className="mb-3 pb-3 border-b border-gray-200">
                       <span className="text-gray-500 text-sm">Notes:</span>
@@ -843,7 +737,6 @@ const RentalManagement = ({ onUpdate }) => {
                     </div>
                   )}
 
-                  {/* Actions */}
                   <div className="flex flex-wrap gap-2">
                     <button 
                       onClick={() => handleEdit(rental)}
@@ -894,7 +787,7 @@ const RentalManagement = ({ onUpdate }) => {
             setEditingRental(null)
             setReservationMode(false)
           }}
-          availableScooters={allScooters} // מעביר את כל האופנועים
+          availableScooters={allScooters}
           initialData={editingRental}
           isEditing={!!editingRental}
           reservationMode={reservationMode}
