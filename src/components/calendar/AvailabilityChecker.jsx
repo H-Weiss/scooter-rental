@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Calendar, Clock, Bike, AlertCircle, Check, X } from 'lucide-react'
+import { Search, Calendar, Clock, Bike, AlertCircle, Check, X, CalendarDays } from 'lucide-react'
 
 const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const [startDate, setStartDate] = useState('')
@@ -26,6 +26,89 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     }
   }, [startDate])
 
+  // 🔥 NEW: פונקציה לחישוב משך הזמינות של קטנוע
+  const calculateAvailabilityDuration = (scooter, requestedStartDate) => {
+    // מצא את כל ההשכרות העתידיות של הקטנוע הזה
+    const futureRentals = rentals
+      .filter(rental => 
+        rental.scooterId === scooter.id && 
+        (rental.status === 'active' || rental.status === 'pending') &&
+        new Date(rental.startDate) > requestedStartDate
+      )
+      .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+
+    if (futureRentals.length === 0) {
+      return {
+        duration: 'indefinite',
+        nextBooking: null,
+        availableUntil: null,
+        daysAvailable: null
+      }
+    }
+
+    // הזמנה הבאה הכי קרובה
+    const nextBooking = futureRentals[0]
+    const nextBookingDate = new Date(nextBooking.startDate)
+    const daysBetween = Math.ceil((nextBookingDate - requestedStartDate) / (1000 * 60 * 60 * 24))
+
+    return {
+      duration: 'limited',
+      nextBooking,
+      availableUntil: nextBookingDate,
+      daysAvailable: daysBetween
+    }
+  }
+
+  // 🔥 NEW: פונקציה לפורמט תצוגת זמינות
+  const formatAvailabilityDuration = (availability) => {
+    if (availability.duration === 'indefinite') {
+      return {
+        text: 'Available indefinitely',
+        subtext: 'No future bookings',
+        color: 'text-green-700',
+        bgColor: 'bg-green-100',
+        icon: '∞'
+      }
+    }
+
+    const { daysAvailable, availableUntil, nextBooking } = availability
+    const untilDate = availableUntil.toLocaleDateString()
+
+    if (daysAvailable === 1) {
+      return {
+        text: 'Available for 1 day',
+        subtext: `Until ${untilDate}`,
+        color: 'text-orange-700',
+        bgColor: 'bg-orange-100',
+        icon: '1'
+      }
+    } else if (daysAvailable <= 7) {
+      return {
+        text: `Available for ${daysAvailable} days`,
+        subtext: `Until ${untilDate}`,
+        color: 'text-yellow-700',
+        bgColor: 'bg-yellow-100',
+        icon: daysAvailable.toString()
+      }
+    } else if (daysAvailable <= 30) {
+      return {
+        text: `Available for ${daysAvailable} days`,
+        subtext: `Until ${untilDate}`,
+        color: 'text-blue-700',
+        bgColor: 'bg-blue-100',
+        icon: daysAvailable.toString()
+      }
+    } else {
+      return {
+        text: `Available for ${daysAvailable} days`,
+        subtext: `Until ${untilDate}`,
+        color: 'text-green-700',
+        bgColor: 'bg-green-100',
+        icon: '30+'
+      }
+    }
+  }
+
   const checkAvailability = async () => {
     if (!startDate || !endDate) {
       alert('Please select both start and end dates')
@@ -47,7 +130,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
       const requestedStartDate = new Date(startDate)
       const requestedEndDate = new Date(endDate)
       
-      console.log('=== Checking Availability ===')
+      console.log('=== Checking Availability with Duration ===')
       console.log('Period:', {
         start: requestedStartDate.toDateString(),
         end: requestedEndDate.toDateString()
@@ -79,11 +162,28 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
         }
       })
       
-      // חלוקת האופנועים לזמינים ולא זמינים
+      // חלוקת האופנועים לזמינים ולא זמינים עם חישוב משך זמינות
       const available = scooters.filter(scooter => {
         const isNotOccupied = !occupiedScooterIds.has(scooter.id)
         const isNotInMaintenance = scooter.status !== 'maintenance'
         return isNotOccupied && isNotInMaintenance
+      }).map(scooter => {
+        // 🔥 NEW: חישוב משך הזמינות לכל קטנוע זמין
+        const availability = calculateAvailabilityDuration(scooter, requestedStartDate)
+        const formattedAvailability = formatAvailabilityDuration(availability)
+        
+        return {
+          ...scooter,
+          availability,
+          formattedAvailability
+        }
+      }).sort((a, b) => {
+        // מיון לפי משך זמינות - ראשון הכי זמין לזמן רב
+        if (a.availability.duration === 'indefinite' && b.availability.duration !== 'indefinite') return -1
+        if (a.availability.duration !== 'indefinite' && b.availability.duration === 'indefinite') return 1
+        if (a.availability.duration === 'indefinite' && b.availability.duration === 'indefinite') return 0
+        
+        return b.availability.daysAvailable - a.availability.daysAvailable
       })
       
       const unavailable = scooters.filter(scooter => {
@@ -230,7 +330,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* אופנועים זמינים */}
+              {/* אופנועים זמינים עם משך זמינות */}
               <div className="space-y-2">
                 <h4 className="flex items-center text-sm font-medium text-green-800">
                   <Check className="h-4 w-4 mr-2" />
@@ -243,15 +343,41 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {availableScooters.map(scooter => (
-                      <div key={scooter.id} className="flex items-center justify-between bg-green-50 border border-green-200 rounded p-3">
-                        <div className="flex items-center space-x-3">
-                          <Bike className="h-4 w-4 text-green-600" />
-                          <div>
-                            <div className="font-medium text-green-900">{scooter.licensePlate}</div>
-                            <div className="text-xs text-green-700">{scooter.color} • {scooter.year}</div>
+                      <div key={scooter.id} className="bg-green-50 border border-green-200 rounded p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-3">
+                            <Bike className="h-4 w-4 text-green-600" />
+                            <div>
+                              <div className="font-medium text-green-900">{scooter.licensePlate}</div>
+                              <div className="text-xs text-green-700">{scooter.color} • {scooter.year}</div>
+                            </div>
+                          </div>
+                          <div className="text-xs text-green-600 font-medium">✓ Available</div>
+                        </div>
+                        
+                        {/* 🔥 NEW: תצוגת משך הזמינות */}
+                        <div className={`mt-2 p-2 rounded-md ${scooter.formattedAvailability.bgColor} border border-opacity-30`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-6 h-6 rounded-full ${scooter.formattedAvailability.bgColor} border flex items-center justify-center text-xs font-bold ${scooter.formattedAvailability.color}`}>
+                                {scooter.formattedAvailability.icon}
+                              </div>
+                              <div>
+                                <div className={`text-xs font-medium ${scooter.formattedAvailability.color}`}>
+                                  {scooter.formattedAvailability.text}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {scooter.formattedAvailability.subtext}
+                                </div>
+                              </div>
+                            </div>
+                            {scooter.availability.nextBooking && (
+                              <div className="text-xs text-gray-500">
+                                Next: {scooter.availability.nextBooking.customerName}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="text-xs text-green-600 font-medium">✓ Available</div>
                       </div>
                     ))}
                   </div>
@@ -307,13 +433,14 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               </div>
             </div>
 
-            {/* הודעת עזרה */}
+            {/* הודעת עזרה משופרת */}
             <div className="bg-blue-50 border border-blue-200 rounded p-3">
               <div className="flex items-start space-x-2">
-                <Search className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <CalendarDays className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-blue-800">
-                  <strong>Quick tip:</strong> This shows real-time availability. Available scooters can be booked immediately. 
-                  For unavailable scooters, you can see exactly when they'll be free again.
+                  <strong>Enhanced availability info:</strong> Available scooters now show how long they remain free. 
+                  Green indicates long-term availability, while yellow/orange shows shorter availability windows. 
+                  Plan your bookings accordingly!
                 </div>
               </div>
             </div>

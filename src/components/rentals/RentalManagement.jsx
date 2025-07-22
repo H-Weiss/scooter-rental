@@ -95,6 +95,28 @@ const RentalManagement = ({ onUpdate }) => {
     }
     loadData()
   }, [])
+  
+  // 🔥 NEW: עדכון סטטוס כל האופנועים אחרי טעינת הנתונים
+  useEffect(() => {
+    if (allScooters.length > 0 && rentals.length >= 0) {
+      console.log('Data loaded, updating all scooters status...')
+      updateAllScootersStatus()
+    }
+  }, [allScooters.length, rentals.length])
+
+  const updateAllScootersStatus = async () => {
+    try {
+      console.log('=== Updating all scooters status ===')
+      
+      for (const scooter of allScooters) {
+        await updateScooterStatusSmart(scooter.id)
+      }
+      
+      console.log('=== Finished updating all scooters status ===')
+    } catch (error) {
+      console.error('Error updating all scooters status:', error)
+    }
+  }
 
   // פונקציה לעדכון חכם של סטטוס אופנוע לפי תאריכי השכרות
   const updateScooterStatusSmart = async (scooterId) => {
@@ -111,14 +133,18 @@ const RentalManagement = ({ onUpdate }) => {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      // בדוק אם יש השכרה פעילה היום
+      // 🔥 FIX: בדוק אם יש השכרה פעילה שכוללת את היום הנוכחי
       const currentRental = scooterRentals.find(r => {
         const startDate = new Date(r.startDate)
         const endDate = new Date(r.endDate)
         startDate.setHours(0, 0, 0, 0)
         endDate.setHours(23, 59, 59, 999)
         
-        return today >= startDate && today <= endDate && r.status === 'active'
+        // 🔥 FIX: השכרה פעילה אם היום בין תאריך ההתחלה והסיום
+        const isActivePeriod = today >= startDate && today <= endDate
+        const isActiveStatus = r.status === 'active'
+        
+        return isActivePeriod && isActiveStatus
       })
 
       let newStatus = 'available'
@@ -127,18 +153,42 @@ const RentalManagement = ({ onUpdate }) => {
       if (currentRental) {
         newStatus = 'rented'
         lastRentalId = currentRental.id
-      } else if (scooterRentals.length > 0) {
-        // יש השכרות עתידיות אבל לא נוכחיות - השאר available
-        newStatus = 'available'
+        console.log(`Scooter ${scooter.licensePlate} set to RENTED due to active rental:`, currentRental.orderNumber)
+      } else {
+        // 🔥 FIX: בדוק אם יש השכרות עתידיות (pending) שמתחילות בעתיד
+        const futureRentals = scooterRentals.filter(r => {
+          const startDate = new Date(r.startDate)
+          startDate.setHours(0, 0, 0, 0)
+          return startDate > today && r.status === 'pending'
+        })
+        
+        if (futureRentals.length > 0) {
+          newStatus = 'available' // זמין עד להשכרה עתידית
+          console.log(`Scooter ${scooter.licensePlate} set to AVAILABLE (has future reservations)`)
+        } else {
+          newStatus = 'available'
+          console.log(`Scooter ${scooter.licensePlate} set to AVAILABLE (no active rentals)`)
+        }
       }
 
       // עדכן את הסטטוס רק אם השתנה
       if (scooter.status !== newStatus) {
+        console.log(`Updating scooter ${scooter.licensePlate} status from ${scooter.status} to ${newStatus}`)
+        
         await updateScooter({
           ...scooter,
           status: newStatus,
           lastRentalId
         })
+        
+        // עדכן גם את המערך המקומי
+        setAllScooters(prev => prev.map(s => 
+          s.id === scooterId 
+            ? { ...s, status: newStatus, lastRentalId }
+            : s
+        ))
+      } else {
+        console.log(`Scooter ${scooter.licensePlate} status unchanged: ${newStatus}`)
       }
     } catch (error) {
       console.error('Error updating scooter status:', error)
@@ -461,6 +511,13 @@ const RentalManagement = ({ onUpdate }) => {
         </div>
         
         <div className="flex items-center space-x-2">
+        <button
+    onClick={updateAllScootersStatus}
+    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+    title="Update all scooter statuses"
+  >
+    🔄 Sync Status
+          </button>
           <button
             onClick={() => {
               setEditingRental(null)
