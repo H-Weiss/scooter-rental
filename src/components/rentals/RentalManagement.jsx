@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle } from 'lucide-react'
+import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle, AlertTriangle, CalendarDays } from 'lucide-react'
 import RentalForm from '../rentals/RentalForm'
 import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
 import useStatistics from '../../context/useStatistics'
@@ -59,6 +59,61 @@ const RentalManagement = ({ onUpdate }) => {
       hasDiscount,
       discount
     }
+  }
+
+  // 🔥 NEW: פונקציה לבדיקת השכרות שחוזרות ב-3 הימים הקרובים
+  const getUpcomingReturns = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const threeDaysFromNow = new Date(today)
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
+
+    const upcomingReturns = {}
+
+    // קבל את כל ההשכרות הפעילות שחוזרות ב-3 הימים הקרובים
+    const relevantRentals = rentals.filter(rental => {
+      if (rental.status !== 'active') return false
+      
+      const endDate = new Date(rental.endDate)
+      endDate.setHours(0, 0, 0, 0)
+      
+      return endDate >= today && endDate < threeDaysFromNow
+    })
+
+    // קבץ לפי תאריכים
+    relevantRentals.forEach(rental => {
+      const endDate = new Date(rental.endDate)
+      const dateKey = endDate.toDateString()
+      
+      if (!upcomingReturns[dateKey]) {
+        upcomingReturns[dateKey] = {
+          date: endDate,
+          rentals: []
+        }
+      }
+      
+      upcomingReturns[dateKey].rentals.push(rental)
+    })
+
+    // המר לרשימה מסודרת לפי תאריך
+    return Object.values(upcomingReturns).sort((a, b) => a.date - b.date)
+  }
+
+  // 🔥 NEW: פונקציה לבדיקת השכרות פגות תוקף (יום לאחר תאריך ההחזרה)
+  const getOverdueRentals = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return rentals.filter(rental => {
+      if (rental.status !== 'active') return false
+      
+      const endDate = new Date(rental.endDate)
+      endDate.setHours(0, 0, 0, 0)
+      
+      // פג תוקף = יום אחד אחרי תאריך ההחזרה
+      return endDate < today
+    })
   }
 
   const fetchRentals = async (useCache = false) => {
@@ -313,13 +368,7 @@ const RentalManagement = ({ onUpdate }) => {
     const pendingReservations = rentals.filter(r => r.status === 'pending').length
     const activeRentals = rentals.filter(r => r.status === 'active').length
     const completedRentals = rentals.filter(r => r.status === 'completed').length
-    const overdueRentals = rentals.filter(r => {
-      if (r.status === 'active') {
-        const endDate = new Date(r.endDate)
-        return endDate < new Date()
-      }
-      return false
-    }).length
+    const overdueRentals = getOverdueRentals().length // 🔥 UPDATED: שימוש בפונקציה המעודכנת
 
     return {
       pendingReservations,
@@ -345,7 +394,33 @@ const RentalManagement = ({ onUpdate }) => {
   }
 
   const stats = calculateStatistics()
+  const upcomingReturns = getUpcomingReturns() // 🔥 NEW: השכרות שחוזרות ב-3 הימים הקרובים
 
+  // פונקציה לקבלת תווית התאריך (Today, Tomorrow, או התאריך)
+  const getDateLabel = (date) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    const targetDate = new Date(date)
+    targetDate.setHours(0, 0, 0, 0)
+    
+    if (targetDate.getTime() === today.getTime()) {
+      return { label: 'Today', color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' }
+    } else if (targetDate.getTime() === tomorrow.getTime()) {
+      return { label: 'Tomorrow', color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' }
+    } else {
+      return { 
+        label: targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), 
+        color: 'text-blue-600', 
+        bgColor: 'bg-blue-50 border-blue-200' 
+      }
+    }
+  }
+
+  // 🔥 UPDATED: מיון השכרות מהישנה לחדשה לפי תאריך השכרה
   const filteredRentals = rentals
     .filter(rental => {
       if (activeTab === 'pending') {
@@ -356,15 +431,10 @@ const RentalManagement = ({ onUpdate }) => {
       return rental.status === 'completed'
     })
     .sort((a, b) => {
-      if (activeTab === 'pending') {
-        return new Date(a.startDate) - new Date(b.startDate)
-      } else if (activeTab === 'active') {
-        return new Date(a.endDate) - new Date(b.endDate)
-      } else {
-        const aDate = new Date(a.completedAt || a.createdAt)
-        const bDate = new Date(b.completedAt || b.createdAt)
-        return bDate - aDate
-      }
+      // מיון לפי תאריך השכרה (startDate) מהישן לחדש
+      const aStart = new Date(a.startDate)
+      const bStart = new Date(b.startDate)
+      return aStart - bStart
     })
 
   if (isLoading) {
@@ -411,6 +481,102 @@ const RentalManagement = ({ onUpdate }) => {
           <p className="text-2xl font-semibold text-red-600">{stats.overdueRentals}</p>
         </div>
       </div>
+
+      {/* 🔥 NEW: Upcoming Returns Alert (3 days) */}
+      {upcomingReturns.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <CalendarDays className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-blue-900 mb-3">
+                Upcoming Scooter Returns (Next 3 Days)
+              </h3>
+              <div className="space-y-4">
+                {upcomingReturns.map((dayData, index) => {
+                  const dateInfo = getDateLabel(dayData.date)
+                  
+                  return (
+                    <div key={index} className={`rounded-lg border ${dateInfo.bgColor} p-3`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <div className={`font-semibold ${dateInfo.color}`}>
+                            {dateInfo.label}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            ({dayData.date.toLocaleDateString()})
+                          </div>
+                          <div className={`text-xs font-medium px-2 py-1 rounded-full bg-white ${dateInfo.color}`}>
+                            {dayData.rentals.length} return{dayData.rentals.length !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {dayData.rentals.map(rental => (
+                          <div key={rental.id} className="bg-white rounded-md p-3 border border-gray-200 hover:border-gray-300 transition-colors">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-medium text-gray-900">
+                                {rental.scooterLicense}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                #{rental.orderNumber}
+                              </div>
+                            </div>
+                            
+                            <div className="text-sm text-gray-700 mb-2">
+                              {rental.customerName}
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-1 text-gray-600">
+                                <Clock className="h-3 w-3" />
+                                <span>Return: {rental.endTime || '18:00'}</span>
+                              </div>
+                              
+                              {rental.whatsappNumber && (
+                                <div className="bg-green-100 text-green-700 px-2 py-1 rounded flex items-center space-x-1">
+                                  <span>📱</span>
+                                  <span>{rental.whatsappCountryCode} {rental.whatsappNumber}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {rental.notes && (
+                              <div className="mt-2 text-xs text-gray-500 italic truncate">
+                                Note: {rental.notes}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              
+              {/* סיכום מהיר */}
+              <div className="mt-4 pt-3 border-t border-blue-200">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="text-blue-700">
+                    <strong>Quick Summary:</strong> {upcomingReturns.reduce((total, day) => total + day.rentals.length, 0)} total returns in next 3 days
+                  </div>
+                  <div className="flex items-center space-x-4 text-xs text-blue-600">
+                    {upcomingReturns.map((dayData, index) => {
+                      const dateInfo = getDateLabel(dayData.date)
+                      return (
+                        <div key={index} className="flex items-center space-x-1">
+                          <div className={`w-2 h-2 rounded-full ${dateInfo.color === 'text-red-600' ? 'bg-red-400' : dateInfo.color === 'text-orange-600' ? 'bg-orange-400' : 'bg-blue-400'}`}></div>
+                          <span>{dateInfo.label}: {dayData.rentals.length}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header with Tabs and Add Button */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-gray-200 pb-4">
@@ -512,7 +678,8 @@ const RentalManagement = ({ onUpdate }) => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredRentals.map((rental) => {
-                  const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
+                  const overdueRentals = getOverdueRentals()
+                  const isOverdue = overdueRentals.some(r => r.id === rental.id)
                   const displayStatus = isOverdue ? 'overdue' : rental.status
                   const pricing = calculateRentalPricing(rental)
 
@@ -544,6 +711,10 @@ const RentalManagement = ({ onUpdate }) => {
                       <td className="px-4 py-4 text-sm">
                         <div>{new Date(rental.startDate).toLocaleDateString()} {rental.startTime || '09:00'}</div>
                         <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
+                        {/* 🔥 NEW: הוספת מספר הימים */}
+                        <div className="text-xs text-blue-600 font-medium mt-1">
+                          {pricing.days} day{pricing.days !== 1 ? 's' : ''}
+                        </div>
                       </td>
                       <td className="px-4 py-4 text-sm">
                         <div className="space-y-1">
@@ -642,7 +813,8 @@ const RentalManagement = ({ onUpdate }) => {
           {/* Mobile Cards - Visible on mobile and tablet */}
           <div className="lg:hidden space-y-4">
             {filteredRentals.map((rental) => {
-              const isOverdue = new Date(rental.endDate) < new Date() && rental.status === 'active'
+              const overdueRentals = getOverdueRentals()
+              const isOverdue = overdueRentals.some(r => r.id === rental.id)
               const displayStatus = isOverdue ? 'overdue' : rental.status
               const pricing = calculateRentalPricing(rental)
 
@@ -694,6 +866,13 @@ const RentalManagement = ({ onUpdate }) => {
                       <span className="text-gray-500">End:</span>
                       <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
                       <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
+                    </div>
+                    {/* 🔥 NEW: הוספת מספר הימים במובייל */}
+                    <div className="col-span-2">
+                      <span className="text-gray-500">Duration:</span>
+                      <div className="font-medium text-blue-600">
+                        {pricing.days} day{pricing.days !== 1 ? 's' : ''}
+                      </div>
                     </div>
                     <div>
                       <span className="text-gray-500">Daily Rate:</span>
