@@ -28,8 +28,10 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
 
   // קידומות מדינות נפוצות
   const countryCodes = [
+    // תאילנד - ברירת מחדל
     { code: '+66', country: 'Thailand', flag: '🇹🇭' },
-    { code: '+1', country: 'USA/Canada', flag: '🇺🇸' },
+    
+    // אירופה
     { code: '+44', country: 'UK', flag: '🇬🇧' },
     { code: '+49', country: 'Germany', flag: '🇩🇪' },
     { code: '+33', country: 'France', flag: '🇫🇷' },
@@ -43,22 +45,54 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     { code: '+41', country: 'Switzerland', flag: '🇨🇭' },
     { code: '+43', country: 'Austria', flag: '🇦🇹' },
     { code: '+32', country: 'Belgium', flag: '🇧🇪' },
+    { code: '+48', country: 'Poland', flag: '🇵🇱' },
+    { code: '+420', country: 'Czech Republic', flag: '🇨🇿' },
+    { code: '+36', country: 'Hungary', flag: '🇭🇺' },
+    { code: '+358', country: 'Finland', flag: '🇫🇮' },
+    { code: '+372', country: 'Estonia', flag: '🇪🇪' },
+    { code: '+371', country: 'Latvia', flag: '🇱🇻' },
+    { code: '+370', country: 'Lithuania', flag: '🇱🇹' },
+    
+    // צפון אמריקה
+    { code: '+1', country: 'USA/Canada', flag: '🇺🇸' },
+    
+    // אוקיאניה
     { code: '+61', country: 'Australia', flag: '🇦🇺' },
     { code: '+64', country: 'New Zealand', flag: '🇳🇿' },
+    
+    // אסיה
     { code: '+81', country: 'Japan', flag: '🇯🇵' },
     { code: '+82', country: 'South Korea', flag: '🇰🇷' },
     { code: '+86', country: 'China', flag: '🇨🇳' },
+    { code: '+91', country: 'India', flag: '🇮🇳' },
     { code: '+65', country: 'Singapore', flag: '🇸🇬' },
     { code: '+60', country: 'Malaysia', flag: '🇲🇾' },
     { code: '+84', country: 'Vietnam', flag: '🇻🇳' },
     { code: '+62', country: 'Indonesia', flag: '🇮🇩' },
     { code: '+63', country: 'Philippines', flag: '🇵🇭' },
-    { code: '+91', country: 'India', flag: '🇮🇳' },
+    { code: '+855', country: 'Cambodia', flag: '🇰🇭' },
+    { code: '+856', country: 'Laos', flag: '🇱🇦' },
+    { code: '+95', country: 'Myanmar', flag: '🇲🇲' },
+    
+    // המזרח התיכון
+    { code: '+971', country: 'UAE', flag: '🇦🇪' },
     { code: '+972', country: 'Israel', flag: '🇮🇱' },
+    { code: '+974', country: 'Qatar', flag: '🇶🇦' },
+    { code: '+965', country: 'Kuwait', flag: '🇰🇼' },
+    { code: '+973', country: 'Bahrain', flag: '🇧🇭' },
+    { code: '+968', country: 'Oman', flag: '🇴🇲' },
+    { code: '+966', country: 'Saudi Arabia', flag: '🇸🇦' },
+    { code: '+962', country: 'Jordan', flag: '🇯🇴' },
+    { code: '+961', country: 'Lebanon', flag: '🇱🇧' },
+    { code: '+90', country: 'Turkey', flag: '🇹🇷' },
+    
+    // אחרות
     { code: '+7', country: 'Russia', flag: '🇷🇺' },
-    { code: '+48', country: 'Poland', flag: '🇵🇱' },
-    { code: '+420', country: 'Czech Republic', flag: '🇨🇿' },
-    { code: '+36', country: 'Hungary', flag: '🇭🇺' }
+    { code: '+27', country: 'South Africa', flag: '🇿🇦' },
+    { code: '+55', country: 'Brazil', flag: '🇧🇷' },
+    { code: '+52', country: 'Mexico', flag: '🇲🇽' },
+    { code: '+54', country: 'Argentina', flag: '🇦🇷' },
+    { code: '+56', country: 'Chile', flag: '🇨🇱' }
   ]
 
   // שעות זמינות (9:00 עד 18:00)
