@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Bike, Users, Calendar, Wrench } from 'lucide-react'
+import { Bike, Users, Calendar, Wrench, FileText } from 'lucide-react'
 import './index.css'
 import ScooterManagement from './components/scooters/ScooterManagement'
 import RentalManagement from './components/rentals/RentalManagement'
 import RentalCalendar from './components/calendar/RentalCalendar'
+import ReportManagement from './components/reports/ReportManagement'
+import CustomerManagement from './components/customers/CustomerManagement'
 import Header from './components/Header'
 import LoginPage from './components/LoginPage'
 import StatisticsProvider from './context/StatisticsProvider'
@@ -227,6 +229,7 @@ function MainApp() {
   const tabs = [
     { id: 'rentals', name: 'Rentals', icon: Calendar },
     { id: 'scooters', name: 'Scooters', icon: Bike },
+    { id: 'reports', name: 'Reports', icon: FileText },
     { id: 'customers', name: 'Customers', icon: Users },
     { id: 'maintenance', name: 'Maintenance', icon: Wrench }
   ]
@@ -293,6 +296,10 @@ function MainApp() {
             <ScooterManagementWrapper />
           ) : activeTab === 'rentals' ? (
             <RentalManagementWrapper />
+          ) : activeTab === 'reports' ? (
+            <ReportManagement />
+          ) : activeTab === 'customers' ? (
+            <CustomerManagement />
           ) : (
             <div className="p-6">
               <h2 className="text-lg font-medium text-gray-900 mb-4">

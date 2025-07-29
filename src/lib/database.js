@@ -1,5 +1,98 @@
 import { supabase } from './supabase.js'
 
+// =============== CUSTOMER OPERATIONS ===============
+
+export const getCustomers = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error fetching customers:', error)
+    // If table doesn't exist, return empty array
+    if (error.code === '42P01') {
+      console.log('Customers table does not exist yet')
+      return []
+    }
+    throw new Error(`Failed to fetch customers: ${error.message}`)
+  }
+}
+
+export const getCustomerByPassport = async (passportNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('passport_number', passportNumber)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No customer found
+        return null
+      }
+      throw error
+    }
+    return data
+  } catch (error) {
+    console.error('Error fetching customer by passport:', error)
+    return null
+  }
+}
+
+export const addCustomer = async (customer) => {
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .insert([{
+        passport_number: customer.passportNumber,
+        name: customer.name,
+        whatsapp_country_code: customer.whatsappCountryCode,
+        whatsapp_number: customer.whatsappNumber,
+        email: customer.email || null,
+        notes: customer.notes || null
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error adding customer:', error)
+    if (error.code === '23505') {
+      throw new Error('A customer with this passport number already exists')
+    }
+    throw new Error(`Failed to add customer: ${error.message}`)
+  }
+}
+
+export const updateCustomer = async (passportNumber, updates) => {
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .update({
+        name: updates.name,
+        whatsapp_country_code: updates.whatsappCountryCode,
+        whatsapp_number: updates.whatsappNumber,
+        email: updates.email || null,
+        notes: updates.notes || null
+      })
+      .eq('passport_number', passportNumber)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error updating customer:', error)
+    throw new Error(`Failed to update customer: ${error.message}`)
+  }
+}
+
 // =============== SCOOTER OPERATIONS ===============
 
 export const getScooters = async () => {

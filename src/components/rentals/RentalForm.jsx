@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { AlertCircle, Calendar, Clock } from 'lucide-react'
+import { AlertCircle, Calendar, Clock, User } from 'lucide-react'
+import { getCustomerByPassport } from '../../lib/database'
 
 const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, isEditing = false, reservationMode = false }) => {
   const [formData, setFormData] = useState({
@@ -25,6 +26,8 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
   const [originalEndDate, setOriginalEndDate] = useState(null)
   const [filteredScooters, setFilteredScooters] = useState([])
   const [isLoadingScooters, setIsLoadingScooters] = useState(false)
+  const [customerLookupStatus, setCustomerLookupStatus] = useState('')
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false)
 
   // קידומות מדינות נפוצות
   const countryCodes = [
@@ -309,6 +312,53 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Customer lookup function
+  const lookupCustomerByPassport = async (passportNumber) => {
+    if (!passportNumber.trim() || isEditing) return
+
+    try {
+      setIsLookingUpCustomer(true)
+      setCustomerLookupStatus('')
+      
+      const customer = await getCustomerByPassport(passportNumber.trim())
+      
+      if (customer) {
+        // Auto-fill customer details
+        setFormData(prev => ({
+          ...prev,
+          customerName: customer.name,
+          whatsappCountryCode: customer.whatsapp_country_code,
+          whatsappNumber: customer.whatsapp_number
+        }))
+        setCustomerLookupStatus('Customer found and details auto-filled!')
+      } else {
+        setCustomerLookupStatus('Customer not found. Please enter details manually.')
+      }
+    } catch (error) {
+      console.error('Error looking up customer:', error)
+      setCustomerLookupStatus('Error looking up customer. Please enter details manually.')
+    } finally {
+      setIsLookingUpCustomer(false)
+    }
+  }
+
+  // Handle passport number change with debounced lookup
+  const handlePassportNumberChange = (value) => {
+    setFormData(prev => ({ ...prev, passportNumber: value }))
+    
+    // Clear previous status
+    setCustomerLookupStatus('')
+    
+    // Debounce the lookup
+    const timeoutId = setTimeout(() => {
+      if (value.trim().length >= 3) {
+        lookupCustomerByPassport(value)
+      }
+    }, 1000)
+
+    return () => clearTimeout(timeoutId)
   }
 
   const handleAgreementCheck = (e) => {
@@ -612,16 +662,30 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
             </div>
   
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Passport Number *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <User className="w-4 h-4 inline mr-1" />
+                Passport Number *
+                {isLookingUpCustomer && (
+                  <span className="ml-2 text-xs text-blue-600">Looking up customer...</span>
+                )}
+              </label>
               <input
                 type="text"
                 value={formData.passportNumber}
-                onChange={(e) => setFormData({ ...formData, passportNumber: e.target.value })}
+                onChange={(e) => handlePassportNumberChange(e.target.value)}
                 className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.passportNumber ? 'border-red-300' : 'border-gray-300'}`}
+                placeholder="Enter passport number to auto-fill customer details"
                 required
               />
               {errors.passportNumber && (
                 <p className="mt-1 text-sm text-red-600">{errors.passportNumber}</p>
+              )}
+              {customerLookupStatus && (
+                <p className={`mt-1 text-sm ${
+                  customerLookupStatus.includes('found') ? 'text-green-600' : 'text-orange-600'
+                }`}>
+                  {customerLookupStatus}
+                </p>
               )}
             </div>
 
