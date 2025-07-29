@@ -316,7 +316,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
 
   // Customer lookup function
   const lookupCustomerByPassport = async (passportNumber) => {
-    if (!passportNumber.trim() || isEditing) return
+    if (!passportNumber.trim()) return
 
     try {
       setIsLookingUpCustomer(true)
@@ -667,6 +667,9 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 Passport Number *
                 {isLookingUpCustomer && (
                   <span className="ml-2 text-xs text-blue-600">Looking up customer...</span>
+                )}
+                {isEditing && (
+                  <span className="ml-2 text-xs text-gray-500">(Change to look up another customer)</span>
                 )}
               </label>
               <input

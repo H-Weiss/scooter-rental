@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { User, Phone, Calendar, MessageCircle, Search, History, Star, Plus, Download, RefreshCw, ArrowUpDown } from 'lucide-react'
-import { getRentals, getCustomers, addCustomer, updateCustomer } from '../../lib/database'
+import { User, Phone, Calendar, MessageCircle, Search, History, Star, Plus, Download, RefreshCw, ArrowUpDown, Trash2 } from 'lucide-react'
+import { getRentals, getCustomers, addCustomer, updateCustomer, deleteCustomer } from '../../lib/database'
 import { migrateCustomersFromRentals, previewCustomerMigration } from '../../lib/customerMigration'
 import CustomerForm from './CustomerForm'
 
@@ -19,6 +19,8 @@ const CustomerManagement = ({ onUpdate }) => {
   const [migrationPreview, setMigrationPreview] = useState(null)
   const [isMigrating, setIsMigrating] = useState(false)
   const [sortOrder, setSortOrder] = useState('desc') // 'desc' = newest first, 'asc' = oldest first
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState(null)
 
   useEffect(() => {
     loadCustomers()
@@ -263,6 +265,40 @@ const CustomerManagement = ({ onUpdate }) => {
     }
   }
 
+  const handleDeleteCustomer = (customer) => {
+    if (customer.rentals && customer.rentals.length > 0) {
+      alert('Cannot delete customer with rental history')
+      return
+    }
+    setCustomerToDelete(customer)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteCustomer = async () => {
+    if (!customerToDelete) return
+    
+    try {
+      await deleteCustomer(customerToDelete.passportNumber)
+      
+      // Reload customers
+      await loadCustomers()
+      
+      // Close modal
+      setShowDeleteModal(false)
+      setCustomerToDelete(null)
+      
+      // Notify parent if provided
+      if (onUpdate) {
+        onUpdate()
+      }
+      
+      alert('Customer deleted successfully')
+    } catch (error) {
+      console.error('Error deleting customer:', error)
+      alert(`Failed to delete customer: ${error.message}`)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -277,22 +313,22 @@ const CustomerManagement = ({ onUpdate }) => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold text-gray-900">Customer Management</h2>
-          <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-3 sm:space-y-0">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Customer Management</h2>
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <button
               onClick={handleMigrateCustomers}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center"
+              className="px-3 py-2 sm:px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center text-sm sm:text-base"
             >
               <Download className="w-4 h-4 mr-2" />
-              Migrate from Rentals
+              <span className="whitespace-nowrap">Migrate from Rentals</span>
             </button>
             <button
               onClick={handleAddCustomer}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center"
+              className="px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center text-sm sm:text-base"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Customer
+              <span className="whitespace-nowrap">Add Customer</span>
             </button>
           </div>
         </div>
@@ -420,20 +456,31 @@ const CustomerManagement = ({ onUpdate }) => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => setSelectedCustomer(customer)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <History className="w-4 h-4 inline mr-1" />
-                          View
-                        </button>
-                        <button
-                          onClick={() => sendReviewRequest(customer)}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <MessageCircle className="w-4 h-4 inline mr-1" />
-                          Review
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setSelectedCustomer(customer)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <History className="w-4 h-4 inline mr-1" />
+                            <span className="hidden lg:inline">View</span>
+                          </button>
+                          <button
+                            onClick={() => sendReviewRequest(customer)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            <MessageCircle className="w-4 h-4 inline mr-1" />
+                            <span className="hidden lg:inline">Review</span>
+                          </button>
+                          {customer.rentals.length === 0 && (
+                            <button
+                              onClick={() => handleDeleteCustomer(customer)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete customer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -449,18 +496,32 @@ const CustomerManagement = ({ onUpdate }) => {
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">{selectedCustomer.name}</h3>
+              <div className="flex-1">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{selectedCustomer.name}</h3>
                 <p className="text-sm text-gray-500">Passport: {selectedCustomer.passportNumber}</p>
               </div>
-              <button
-                onClick={() => setSelectedCustomer(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    handleEditCustomer(selectedCustomer)
+                    setSelectedCustomer(null)
+                  }}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center text-sm sm:text-base"
+                >
+                  <svg className="w-4 h-4 mr-1 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Customer Stats */}
@@ -681,6 +742,47 @@ const CustomerManagement = ({ onUpdate }) => {
                   )}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && customerToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Customer</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this customer? This action cannot be undone.
+            </p>
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <p className="text-sm text-gray-600">
+                <strong>Name:</strong> {customerToDelete.name}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                <strong>Passport:</strong> {customerToDelete.passportNumber}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                <strong>Rentals:</strong> {customerToDelete.rentals.length} (must be 0 to delete)
+              </p>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setCustomerToDelete(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteCustomer}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Customer
+              </button>
             </div>
           </div>
         </div>

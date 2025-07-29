@@ -93,6 +93,66 @@ export const updateCustomer = async (passportNumber, updates) => {
   }
 }
 
+export const updateCustomerPassport = async (oldPassportNumber, newPassportNumber) => {
+  try {
+    // First check if the new passport number already exists
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('passport_number')
+      .eq('passport_number', newPassportNumber)
+      .single()
+    
+    if (existingCustomer) {
+      throw new Error('A customer with this passport number already exists')
+    }
+
+    // Update the passport number
+    const { data, error } = await supabase
+      .from('customers')
+      .update({
+        passport_number: newPassportNumber
+      })
+      .eq('passport_number', oldPassportNumber)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error updating customer passport:', error)
+    throw new Error(`Failed to update customer passport: ${error.message}`)
+  }
+}
+
+export const deleteCustomer = async (passportNumber) => {
+  try {
+    // First check if customer has any rentals
+    const { data: rentals, error: rentalError } = await supabase
+      .from('rentals')
+      .select('id')
+      .eq('passport_number', passportNumber)
+      .limit(1)
+    
+    if (rentalError) throw rentalError
+    
+    if (rentals && rentals.length > 0) {
+      throw new Error('Cannot delete customer with rental history')
+    }
+    
+    // Delete the customer
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('passport_number', passportNumber)
+    
+    if (error) throw error
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting customer:', error)
+    throw new Error(`Failed to delete customer: ${error.message}`)
+  }
+}
+
 // =============== SCOOTER OPERATIONS ===============
 
 export const getScooters = async () => {
@@ -216,6 +276,29 @@ export const getRentals = async () => {
 
 export const addRental = async (rental) => {
   try {
+    // First check if customer exists, if not create them
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('passport_number', rental.passportNumber)
+      .single()
+    
+    if (!existingCustomer) {
+      console.log('Creating new customer record for passport:', rental.passportNumber)
+      try {
+        await addCustomer({
+          passportNumber: rental.passportNumber,
+          name: rental.customerName,
+          whatsappCountryCode: rental.whatsappCountryCode,
+          whatsappNumber: rental.whatsappNumber
+        })
+        console.log('Customer created successfully')
+      } catch (error) {
+        console.error('Error creating customer:', error)
+        // Continue with rental creation even if customer creation fails
+      }
+    }
+    
     // Generate order number
     const orderNumber = await generateOrderNumber()
     
@@ -257,6 +340,78 @@ export const updateRental = async (rental) => {
   try {
     console.log('=== updateRental Debug ===')
     console.log('Rental data received:', rental)
+    
+    // First, get the current rental to check if passport number changed
+    const { data: currentRental, error: fetchError } = await supabase
+      .from('rentals')
+      .select('passport_number')
+      .eq('id', rental.id)
+      .single()
+    
+    if (fetchError) throw fetchError
+    
+    const oldPassportNumber = currentRental.passport_number
+    const newPassportNumber = rental.passportNumber
+    
+    // Check if passport number changed
+    if (oldPassportNumber !== newPassportNumber) {
+      console.log('Passport number changed from', oldPassportNumber, 'to', newPassportNumber)
+      
+      // Check if customer exists in customers table
+      const { data: oldCustomer } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('passport_number', oldPassportNumber)
+        .single()
+      
+      if (oldCustomer) {
+        console.log('Updating customer passport number in customers table')
+        try {
+          await updateCustomerPassport(oldPassportNumber, newPassportNumber)
+        } catch (error) {
+          console.error('Error updating customer passport:', error)
+          // Continue with rental update even if customer update fails
+        }
+      }
+    }
+    
+    // Also update customer details (name, phone) if customer exists
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('passport_number', rental.passportNumber)
+      .single()
+    
+    if (existingCustomer) {
+      // Check if any customer details changed
+      const customerUpdates = {}
+      let hasChanges = false
+      
+      if (existingCustomer.name !== rental.customerName) {
+        customerUpdates.name = rental.customerName
+        hasChanges = true
+      }
+      
+      if (existingCustomer.whatsapp_country_code !== rental.whatsappCountryCode) {
+        customerUpdates.whatsappCountryCode = rental.whatsappCountryCode
+        hasChanges = true
+      }
+      
+      if (existingCustomer.whatsapp_number !== rental.whatsappNumber) {
+        customerUpdates.whatsappNumber = rental.whatsappNumber
+        hasChanges = true
+      }
+      
+      if (hasChanges) {
+        console.log('Updating customer details in customers table', customerUpdates)
+        try {
+          await updateCustomer(rental.passportNumber, customerUpdates)
+        } catch (error) {
+          console.error('Error updating customer details:', error)
+          // Continue with rental update even if customer update fails
+        }
+      }
+    }
     
     const updateData = {
       // פרטי אופנוע (יכולים להשתנות בעריכה)
