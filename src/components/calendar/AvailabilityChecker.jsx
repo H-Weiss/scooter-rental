@@ -225,6 +225,13 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
   const days = calculateDays()
 
+  // Helper function to check if a date is Sunday
+  const isSunday = (dateString) => {
+    if (!dateString) return false
+    const date = new Date(dateString)
+    return date.getDay() === 0 // 0 is Sunday
+  }
+
   return (
     <div className={`bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 transition-all duration-300 ${isExpanded ? 'mb-6' : 'mb-4'}`}>
       {/* Header - תמיד גלוי */}
@@ -237,29 +244,45 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           
           <div className="flex flex-col sm:flex-row gap-3 flex-1">
             {/* תאריך התחלה */}
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4 text-gray-500" />
-              <label className="text-sm font-medium text-gray-600">From:</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                min={new Date().toISOString().split('T')[0]}
-              />
+            <div className="flex flex-col">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <label className="text-sm font-medium text-gray-600">From:</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              {isSunday(startDate) && (
+                <p className="mt-1 text-xs text-yellow-600 flex items-center ml-20">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Note: Start date is a Sunday
+                </p>
+              )}
             </div>
             
             {/* תאריך סיום */}
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4 text-gray-500" />
-              <label className="text-sm font-medium text-gray-600">To:</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                min={startDate || new Date().toISOString().split('T')[0]}
-              />
+            <div className="flex flex-col">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <label className="text-sm font-medium text-gray-600">To:</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  min={startDate || new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              {isSunday(endDate) && (
+                <p className="mt-1 text-xs text-yellow-600 flex items-center ml-16">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Note: End date is a Sunday
+                </p>
+              )}
             </div>
             
             {/* מידע על משך השכרה */}

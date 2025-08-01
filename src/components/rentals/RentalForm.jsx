@@ -252,6 +252,13 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
   }
 
   // עדכון תאריך סיום אוטומטי (מינימום יום אחד) + בדיקה אוטומטית לhazמנה עתידית
+  // Helper function to check if a date is Sunday
+  const isSunday = (dateString) => {
+    if (!dateString) return false
+    const date = new Date(dateString)
+    return date.getDay() === 0 // 0 is Sunday
+  }
+
   const handleStartDateChange = (newStartDate) => {
     setFormData(prev => {
       const updated = { ...prev, startDate: newStartDate }
@@ -582,11 +589,16 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 value={formData.startDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
                 className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.startDate ? 'border-red-300' : 'border-gray-300'}`}
-                min={new Date().toISOString().split('T')[0]}
                 required
               />
               {errors.startDate && (
                 <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>
+              )}
+              {isSunday(formData.startDate) && (
+                <p className="mt-1 text-sm text-yellow-600 flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  Note: Start date is a Sunday
+                </p>
               )}
             </div>
   
@@ -597,11 +609,17 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                 className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.endDate ? 'border-red-300' : 'border-gray-300'}`}
-                min={formData.startDate || new Date().toISOString().split('T')[0]}
+                min={formData.startDate}
                 required
               />
               {errors.endDate && (
                 <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>
+              )}
+              {isSunday(formData.endDate) && (
+                <p className="mt-1 text-sm text-yellow-600 flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  Note: End date is a Sunday
+                </p>
               )}
             </div>
 
