@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Calendar, Clock, Bike, AlertCircle, Check, X, CalendarDays } from 'lucide-react'
+import { Search, Calendar, Clock, Bike, AlertCircle, Check, X, CalendarDays, Users, TrendingUp } from 'lucide-react'
 
 const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const [startDate, setStartDate] = useState('')
@@ -9,6 +9,8 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const [unavailableScooters, setUnavailableScooters] = useState([])
   const [showResults, setShowResults] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [numberOfScooters, setNumberOfScooters] = useState(1)
+  const [partialAvailability, setPartialAvailability] = useState(null)
 
   // אוטו-מילוי תאריך התחלה להיום
   useEffect(() => {
@@ -25,6 +27,85 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
       setEndDate(nextDay.toISOString().split('T')[0])
     }
   }, [startDate])
+
+  // פונקציה למציאת תקופות זמינות חלקיות
+  const findPartialAvailability = (scooters, rentals, requestedStartDate, requestedEndDate, numScooters) => {
+    const start = new Date(requestedStartDate)
+    const end = new Date(requestedEndDate)
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+    const availability = []
+    
+    // בודק כל יום בטווח
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+      const currentDate = new Date(d)
+      const nextDate = new Date(d)
+      nextDate.setDate(nextDate.getDate() + 1)
+      
+      // סופר כמה קטנועים זמינים באותו יום
+      const availableOnDay = scooters.filter(scooter => {
+        if (scooter.status === 'maintenance') return false
+        
+        const hasConflict = rentals.some(rental => {
+          if (rental.scooterId !== scooter.id) return false
+          if (rental.status !== 'active' && rental.status !== 'pending') return false
+          
+          const rentalStart = new Date(rental.startDate)
+          const rentalEnd = new Date(rental.endDate)
+          
+          return currentDate < rentalEnd && nextDate > rentalStart
+        })
+        
+        return !hasConflict
+      })
+      
+      availability.push({
+        date: new Date(d),
+        availableCount: availableOnDay.length,
+        availableScooters: availableOnDay
+      })
+    }
+    
+    // מוצא תקופות רציפות של זמינות
+    const periods = []
+    let currentPeriod = null
+    
+    for (let i = 0; i < availability.length; i++) {
+      const day = availability[i]
+      
+      if (day.availableCount >= numScooters) {
+        if (!currentPeriod) {
+          currentPeriod = {
+            startDate: new Date(day.date),
+            endDate: new Date(day.date),
+            days: 1,
+            scooters: day.availableScooters.slice(0, numScooters)
+          }
+        } else {
+          currentPeriod.endDate = new Date(day.date)
+          currentPeriod.days++
+        }
+      } else {
+        if (currentPeriod) {
+          periods.push(currentPeriod)
+          currentPeriod = null
+        }
+      }
+    }
+    
+    if (currentPeriod) {
+      periods.push(currentPeriod)
+    }
+    
+    // מיון לפי אורך התקופה (הארוכה ביותר קודם)
+    periods.sort((a, b) => b.days - a.days)
+    
+    return {
+      totalRequestedDays: totalDays,
+      availablePeriods: periods,
+      bestOption: periods[0] || null,
+      hasFullAvailability: periods.length === 1 && periods[0]?.days === totalDays
+    }
+  }
 
   // 🔥 NEW: פונקציה לחישוב משך הזמינות של קטנוע
   const calculateAvailabilityDuration = (scooter, requestedStartDate) => {
@@ -122,6 +203,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
     setIsChecking(true)
     setShowResults(false)
+    setPartialAvailability(null)
 
     try {
       // סימולציה של זמן טעינה קצר
@@ -196,6 +278,20 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
         reason: scooter.status === 'maintenance' ? 'maintenance' : 'rented'
       }))
       
+      // בדיקת זמינות חלקית אם אין מספיק קטנועים זמינים
+      if (available.length < numberOfScooters) {
+        const partial = findPartialAvailability(
+          scooters,
+          rentals,
+          requestedStartDate,
+          requestedEndDate,
+          numberOfScooters
+        )
+        setPartialAvailability(partial)
+      } else {
+        setPartialAvailability(null)
+      }
+      
       setAvailableScooters(available)
       setUnavailableScooters(unavailable)
       setShowResults(true)
@@ -214,6 +310,8 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     setIsExpanded(false)
     setAvailableScooters([])
     setUnavailableScooters([])
+    setPartialAvailability(null)
+    setNumberOfScooters(1)
   }
 
   const calculateDays = () => {
@@ -285,6 +383,21 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               )}
             </div>
             
+            {/* מספר קטנועים */}
+            <div className="flex items-center space-x-2">
+              <Users className="h-4 w-4 text-gray-500" />
+              <label className="text-sm font-medium text-gray-600">Scooters:</label>
+              <select
+                value={numberOfScooters}
+                onChange={(e) => setNumberOfScooters(parseInt(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {[1, 2, 3, 4, 5].map(num => (
+                  <option key={num} value={num}>{num}</option>
+                ))}
+              </select>
+            </div>
+            
             {/* מידע על משך השכרה */}
             {days > 0 && (
               <div className="flex items-center space-x-2 text-sm text-gray-600">
@@ -331,13 +444,67 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
       {showResults && (
         <div className="border-t border-blue-200 bg-white">
           <div className="p-4 space-y-4">
+            {/* הודעת זמינות חלקית */}
+            {partialAvailability && !partialAvailability.hasFullAvailability && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-4">
+                <div className="flex items-start space-x-3">
+                  <TrendingUp className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-bold text-amber-900 mb-2">
+                      {availableScooters.length < numberOfScooters 
+                        ? `Only ${availableScooters.length} scooter${availableScooters.length !== 1 ? 's' : ''} available for the full period (${numberOfScooters} requested)`
+                        : 'Limited Availability'}
+                    </h4>
+                    
+                    {partialAvailability.availablePeriods.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-amber-800 font-medium">Best alternative options within your dates:</p>
+                        {partialAvailability.availablePeriods.slice(0, 3).map((period, index) => (
+                          <div key={index} className="bg-white border border-amber-200 rounded p-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="text-sm font-bold text-amber-900">
+                                  {period.days} day{period.days !== 1 ? 's' : ''} available
+                                </span>
+                                <span className="text-xs text-gray-600 ml-2">
+                                  ({Math.round((period.days / partialAvailability.totalRequestedDays) * 100)}% of requested period)
+                                </span>
+                              </div>
+                              {index === 0 && (
+                                <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded">
+                                  Best Option
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-700 mt-1">
+                              <strong>Dates:</strong> {period.startDate.toLocaleDateString()} - {period.endDate.toLocaleDateString()}
+                            </div>
+                            <div className="text-xs text-gray-600 mt-1">
+                              {numberOfScooters} scooter{numberOfScooters !== 1 ? 's' : ''} available for this period
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-amber-800">
+                        No {numberOfScooters} scooter{numberOfScooters !== 1 ? 's' : ''} available for any consecutive days in this period.
+                        Try reducing the number of scooters or selecting different dates.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* סיכום תוצאות */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <Check className="h-5 w-5 text-green-600" />
                   <span className="text-sm font-medium text-green-800">
-                    {availableScooters.length} Available
+                    {availableScooters.length >= numberOfScooters 
+                      ? `${availableScooters.length} Available (${numberOfScooters} needed)`
+                      : `${availableScooters.length} Available`}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -357,11 +524,20 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               <div className="space-y-2">
                 <h4 className="flex items-center text-sm font-medium text-green-800">
                   <Check className="h-4 w-4 mr-2" />
-                  Available Scooters ({availableScooters.length})
+                  Available Scooters ({availableScooters.length}{numberOfScooters > 1 && availableScooters.length >= numberOfScooters ? ` - ${numberOfScooters} needed` : ''})
                 </h4>
                 {availableScooters.length === 0 ? (
                   <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded">
                     No scooters available for these dates
+                  </div>
+                ) : availableScooters.length < numberOfScooters ? (
+                  <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
+                    <strong>Not enough scooters:</strong> Only {availableScooters.length} available, but {numberOfScooters} requested.
+                    {partialAvailability?.bestOption && (
+                      <span className="block mt-1">
+                        See partial availability options above.
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -463,7 +639,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                 <div className="text-xs text-blue-800">
                   <strong>Enhanced availability info:</strong> Available scooters now show how long they remain free. 
                   Green indicates long-term availability, while yellow/orange shows shorter availability windows. 
-                  Plan your bookings accordingly!
+                  You can also search for multiple scooters at once and get recommendations for partial availability.
                 </div>
               </div>
             </div>
