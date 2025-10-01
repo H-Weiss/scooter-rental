@@ -38,11 +38,17 @@ const ReportManagement = ({ onUpdate }) => {
     loadData()
   }, [])
 
-  const calculateRentalIncome = (rental) => {
-    const start = new Date(rental.startDate)
-    const end = new Date(rental.endDate)
-    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-    return days * rental.dailyRate
+  const calculateRentalIncome = (rental, reportStart, reportEnd) => {
+    const rentalStart = new Date(rental.startDate)
+    const rentalEnd = new Date(rental.endDate)
+
+    // Determine the overlap period between rental and report date range
+    const overlapStart = new Date(Math.max(rentalStart.getTime(), reportStart.getTime()))
+    const overlapEnd = new Date(Math.min(rentalEnd.getTime(), reportEnd.getTime()))
+
+    // Calculate days only for the overlap period
+    const days = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24))
+    return days > 0 ? days * rental.dailyRate : 0
   }
 
   const generateReport = () => {
@@ -76,10 +82,14 @@ const ReportManagement = ({ onUpdate }) => {
     let totalDays = 0
 
     filteredRentals.forEach(rental => {
-      const income = calculateRentalIncome(rental)
+      const income = calculateRentalIncome(rental, start, end)
+
+      // Calculate days within the report period
       const rentalStart = new Date(rental.startDate)
       const rentalEnd = new Date(rental.endDate)
-      const days = Math.ceil((rentalEnd - rentalStart) / (1000 * 60 * 60 * 24))
+      const overlapStart = new Date(Math.max(rentalStart.getTime(), start.getTime()))
+      const overlapEnd = new Date(Math.min(rentalEnd.getTime(), end.getTime()))
+      const days = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24))
 
       totalIncome += income
       totalDays += days
@@ -121,20 +131,26 @@ const ReportManagement = ({ onUpdate }) => {
   const exportToCSV = () => {
     if (!reportData) return
 
+    const reportStart = new Date(startDate)
+    const reportEnd = new Date(endDate)
+    reportEnd.setHours(23, 59, 59, 999)
+
     let csv = 'Scooter Rental Report\n'
     csv += `Date Range: ${reportData.dateRange.start} - ${reportData.dateRange.end}\n\n`
-    
+
     csv += 'RENTAL DETAILS\n'
-    csv += 'Order #,Customer,Passport,Scooter,Start Date,End Date,Days,Daily Rate,Total Income,Status\n'
-    
+    csv += 'Order #,Customer,Passport,Scooter,Start Date,End Date,Days in Period,Daily Rate,Total Income,Status\n'
+
     reportData.rentals.forEach(rental => {
-      const start = new Date(rental.startDate)
-      const end = new Date(rental.endDate)
-      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-      const income = calculateRentalIncome(rental)
-      
+      const rentalStart = new Date(rental.startDate)
+      const rentalEnd = new Date(rental.endDate)
+      const overlapStart = new Date(Math.max(rentalStart.getTime(), reportStart.getTime()))
+      const overlapEnd = new Date(Math.min(rentalEnd.getTime(), reportEnd.getTime()))
+      const days = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24))
+      const income = calculateRentalIncome(rental, reportStart, reportEnd)
+
       csv += `${rental.orderNumber},${rental.customerName},${rental.passportNumber},${rental.scooterLicense},`
-      csv += `${start.toLocaleDateString()},${end.toLocaleDateString()},${days},${rental.dailyRate},${income},${rental.status}\n`
+      csv += `${rentalStart.toLocaleDateString()},${rentalEnd.toLocaleDateString()},${days},${rental.dailyRate},${income},${rental.status}\n`
     })
     
     csv += '\nSCOOTER SUMMARY\n'
@@ -492,7 +508,7 @@ const ReportManagement = ({ onUpdate }) => {
                       Period
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Days
+                      Days in Period
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Daily Rate
@@ -507,11 +523,18 @@ const ReportManagement = ({ onUpdate }) => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {reportData.rentals.map((rental, index) => {
-                    const start = new Date(rental.startDate)
-                    const end = new Date(rental.endDate)
-                    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-                    const income = calculateRentalIncome(rental)
-                    
+                    const rentalStart = new Date(rental.startDate)
+                    const rentalEnd = new Date(rental.endDate)
+                    const reportStart = new Date(startDate)
+                    const reportEnd = new Date(endDate)
+                    reportEnd.setHours(23, 59, 59, 999)
+
+                    // Calculate days only within the report period
+                    const overlapStart = new Date(Math.max(rentalStart.getTime(), reportStart.getTime()))
+                    const overlapEnd = new Date(Math.min(rentalEnd.getTime(), reportEnd.getTime()))
+                    const days = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24))
+                    const income = calculateRentalIncome(rental, reportStart, reportEnd)
+
                     return (
                       <tr key={rental.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -524,7 +547,7 @@ const ReportManagement = ({ onUpdate }) => {
                           {rental.scooterLicense}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {start.toLocaleDateString()} - {end.toLocaleDateString()}
+                          {rentalStart.toLocaleDateString()} - {rentalEnd.toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {days}
