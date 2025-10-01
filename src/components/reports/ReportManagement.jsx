@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileText, Calendar, Download, Printer, Filter } from 'lucide-react'
+import { FileText, Calendar, Download, Printer, Filter, Clock } from 'lucide-react'
 import { getRentals, getScooters } from '../../lib/database'
 
 const ReportManagement = ({ onUpdate }) => {
@@ -49,6 +49,32 @@ const ReportManagement = ({ onUpdate }) => {
     // Calculate days only for the overlap period
     const days = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24))
     return days > 0 ? days * rental.dailyRate : 0
+  }
+
+  const setQuickDateRange = (range) => {
+    const today = new Date()
+    const end = new Date(today)
+    let start = new Date(today)
+
+    switch (range) {
+      case 'last-week':
+        start.setDate(today.getDate() - 7)
+        break
+      case 'last-month':
+        start.setMonth(today.getMonth() - 1)
+        break
+      case 'last-3-months':
+        start.setMonth(today.getMonth() - 3)
+        break
+      case 'last-6-months':
+        start.setMonth(today.getMonth() - 6)
+        break
+      default:
+        return
+    }
+
+    setStartDate(start.toISOString().split('T')[0])
+    setEndDate(end.toISOString().split('T')[0])
   }
 
   const generateReport = () => {
@@ -330,7 +356,39 @@ const ReportManagement = ({ onUpdate }) => {
             <Filter className="w-5 h-5 mr-2" />
             Report Filters
           </h3>
-          
+
+          {/* Quick Date Range Buttons */}
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-700 flex items-center">
+              <Clock className="w-4 h-4 mr-1" />
+              Quick Select:
+            </span>
+            <button
+              onClick={() => setQuickDateRange('last-week')}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Last Week
+            </button>
+            <button
+              onClick={() => setQuickDateRange('last-month')}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Last Month
+            </button>
+            <button
+              onClick={() => setQuickDateRange('last-3-months')}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Last 3 Months
+            </button>
+            <button
+              onClick={() => setQuickDateRange('last-6-months')}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Last 6 Months
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
