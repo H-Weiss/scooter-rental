@@ -437,6 +437,31 @@ const RentalManagement = ({ onUpdate }) => {
       return aStart - bStart
     })
 
+  // Group pending rentals by month
+  const groupRentalsByMonth = (rentals) => {
+    const groups = {}
+
+    rentals.forEach(rental => {
+      const date = new Date(rental.startDate)
+      const monthYear = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+      if (!groups[monthYear]) {
+        groups[monthYear] = {
+          month: monthYear,
+          date: date,
+          rentals: []
+        }
+      }
+
+      groups[monthYear].rentals.push(rental)
+    })
+
+    // Convert to array and sort by date
+    return Object.values(groups).sort((a, b) => a.date - b.date)
+  }
+
+  const rentalsByMonth = activeTab === 'pending' ? groupRentalsByMonth(filteredRentals) : null
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -635,48 +660,480 @@ const RentalManagement = ({ onUpdate }) => {
       {filteredRentals.length === 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
           <div className="text-center text-gray-500">
-            {activeTab === 'pending' ? 'No pending reservations found.' : 
-             activeTab === 'active' ? 'No active rentals found.' : 
+            {activeTab === 'pending' ? 'No pending reservations found.' :
+             activeTab === 'active' ? 'No active rentals found.' :
              'No completed rentals found.'}
           </div>
         </div>
       ) : (
         <>
-          {/* Desktop Table - Hidden on mobile */}
-          <div className="hidden lg:block bg-white shadow overflow-hidden sm:rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order #
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Scooter
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dates & Times
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Rental Amount
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+          {activeTab === 'pending' && rentalsByMonth ? (
+            /* Grouped by Month Display for Pending Reservations */
+            <div className="space-y-6">
+              {rentalsByMonth.map((group, groupIndex) => (
+                <div key={groupIndex}>
+                  {/* Month Header */}
+                  <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-l-4 border-yellow-500 p-3 mb-3 rounded-lg">
+                    <h3 className="text-lg font-semibold text-gray-800">{group.month}</h3>
+                    <p className="text-sm text-gray-600">{group.rentals.length} reservation{group.rentals.length !== 1 ? 's' : ''}</p>
+                  </div>
+
+                  {/* Desktop Table - Hidden on mobile */}
+                  <div className="hidden lg:block bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Order #
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Scooter
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Customer
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Contact
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Dates & Times
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Rental Amount
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Payment
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {group.rentals.map((rental) => {
+                          const pricing = calculateRentalPricing(rental)
+                          return (
+                            <tr key={rental.id}>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {rental.orderNumber}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
+                                <div className="text-xs text-gray-500">{rental.scooterColor}</div>
+                              </td>
+                              <td className="px-4 py-4 text-sm">
+                                <div className="font-medium text-gray-900">{rental.customerName}</div>
+                                <div className="text-xs text-gray-500">{rental.passportNumber}</div>
+                              </td>
+                              <td className="px-4 py-4 text-sm">
+                                {rental.whatsappNumber ? (
+                                  <>
+                                    <div className="text-xs text-gray-900">
+                                      {rental.whatsappCountryCode} {rental.whatsappNumber}
+                                    </div>
+                                    <div className="text-xs text-gray-500">WhatsApp</div>
+                                  </>
+                                ) : (
+                                  <div className="text-xs text-gray-400">No WhatsApp</div>
+                                )}
+                              </td>
+                              <td className="px-4 py-4 text-sm">
+                                <div>{new Date(rental.startDate).toLocaleDateString()} {rental.startTime || '09:00'}</div>
+                                <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
+                                <div className="text-xs text-blue-600 font-medium mt-1">
+                                  {pricing.days} day{pricing.days !== 1 ? 's' : ''}
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 text-sm">
+                                <div className="space-y-1">
+                                  <div className="flex items-center">
+                                    <span className="font-medium text-gray-900">
+                                      ฿{pricing.actualDailyRate.toLocaleString()}/day
+                                    </span>
+                                    {pricing.hasDiscount && (
+                                      <span className="ml-1 text-xs text-green-600">(Discounted)</span>
+                                    )}
+                                  </div>
+                                  {pricing.hasDiscount && (
+                                    <div className="text-xs text-gray-400 line-through">
+                                      ฿{pricing.originalDailyRate.toLocaleString()}/day
+                                    </div>
+                                  )}
+                                  <div className="text-sm font-medium text-gray-900">
+                                    Total: ฿{pricing.actualTotal.toLocaleString()}
+                                  </div>
+                                  {pricing.hasDiscount && pricing.discount > 0 && (
+                                    <div className="text-xs text-green-600">
+                                      Save: ฿{pricing.discount.toLocaleString()}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-blue-500">
+                                    Deposit: ฿{(rental.deposit || 4000).toLocaleString()}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(rental.status)}`}>
+                                  {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                <button
+                                  onClick={() => handleUpdatePaymentStatus(rental)}
+                                  className="flex items-center"
+                                  title={rental.paid ? 'Mark as Unpaid' : 'Mark as Paid'}
+                                >
+                                  {rental.paid ? (
+                                    <span className="text-green-600">
+                                      <CheckCircle className="h-5 w-5" />
+                                    </span>
+                                  ) : (
+                                    <span className="text-red-600">
+                                      <XCircle className="h-5 w-5" />
+                                    </span>
+                                  )}
+                                </button>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex space-x-2">
+                                  <button
+                                    className="text-blue-600 hover:text-blue-900"
+                                    onClick={() => handleEdit(rental)}
+                                    title="Edit Rental"
+                                  >
+                                    <PencilIcon className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    className="text-red-600 hover:text-red-900"
+                                    onClick={() => handleDeleteRental(rental)}
+                                    title="Delete Rental"
+                                  >
+                                    <Trash2Icon className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded flex items-center"
+                                    onClick={() => handleActivateReservation(rental)}
+                                    title="Activate Reservation"
+                                  >
+                                    <PlayCircle className="h-3 w-3 mr-1" />
+                                    Activate
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards - Visible on mobile and tablet */}
+                  <div className="lg:hidden space-y-4 mb-6">
+                    {group.rentals.map((rental) => {
+                      const pricing = calculateRentalPricing(rental)
+                      return (
+                        <div key={rental.id} className="bg-white shadow rounded-lg p-4 border-l-4 border-yellow-500">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="text-lg font-medium text-gray-900">
+                                #{rental.orderNumber}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {rental.scooterLicense} • {rental.scooterColor}
+                              </p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(rental.status)}`}>
+                                {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)}
+                              </span>
+                              <button
+                                onClick={() => handleUpdatePaymentStatus(rental)}
+                                className="p-1"
+                              >
+                                {rental.paid ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-red-600" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mb-3 pb-3 border-b border-gray-200">
+                            <h4 className="font-medium text-gray-900">{rental.customerName}</h4>
+                            <p className="text-sm text-gray-500">{rental.passportNumber}</p>
+                            {rental.whatsappNumber && (
+                              <p className="text-sm text-blue-600">
+                                WhatsApp: {rental.whatsappCountryCode} {rental.whatsappNumber}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Start:</span>
+                              <div className="font-medium">{new Date(rental.startDate).toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">{rental.startTime || '09:00'}</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">End:</span>
+                              <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-gray-500">Duration:</span>
+                              <div className="font-medium text-blue-600">
+                                {pricing.days} day{pricing.days !== 1 ? 's' : ''}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Daily Rate:</span>
+                              <div className="space-y-1">
+                                <div className="font-medium text-green-600">
+                                  ฿{pricing.actualDailyRate.toLocaleString()}
+                                  {pricing.hasDiscount && (
+                                    <span className="text-xs ml-1">(Discounted)</span>
+                                  )}
+                                </div>
+                                {pricing.hasDiscount && (
+                                  <div className="text-xs text-gray-400 line-through">
+                                    Was: ฿{pricing.originalDailyRate.toLocaleString()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Rental Total:</span>
+                              <div className="space-y-1">
+                                <div className="font-medium text-lg text-gray-900">
+                                  ฿{pricing.actualTotal.toLocaleString()}
+                                </div>
+                                {pricing.hasDiscount && pricing.discount > 0 && (
+                                  <div className="text-xs text-green-600">
+                                    Saved: ฿{pricing.discount.toLocaleString()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-gray-500">Deposit:</span>
+                              <div className="font-medium text-blue-600">฿{(rental.deposit || 4000).toLocaleString()}</div>
+                            </div>
+                          </div>
+
+                          {rental.notes && (
+                            <div className="mb-3 pb-3 border-b border-gray-200">
+                              <span className="text-gray-500 text-sm">Notes:</span>
+                              <p className="text-sm text-gray-700 mt-1">{rental.notes}</p>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => handleEdit(rental)}
+                              className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                            >
+                              <PencilIcon className="h-4 w-4 mr-1" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRental(rental)}
+                              className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
+                            >
+                              <Trash2Icon className="h-4 w-4 mr-1" />
+                              Delete
+                            </button>
+                            <button
+                              onClick={() => handleActivateReservation(rental)}
+                              className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50"
+                            >
+                              <PlayCircle className="h-4 w-4 mr-1" />
+                              Activate
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Regular Display for Active and Completed Rentals */
+            <>
+              {/* Desktop Table - Hidden on mobile */}
+              <div className="hidden lg:block bg-white shadow overflow-hidden sm:rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Order #
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Scooter
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Dates & Times
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rental Amount
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredRentals.map((rental) => {
+                      const overdueRentals = getOverdueRentals()
+                      const isOverdue = overdueRentals.some(r => r.id === rental.id)
+                      const displayStatus = isOverdue ? 'overdue' : rental.status
+                      const pricing = calculateRentalPricing(rental)
+
+                      return (
+                        <tr key={rental.id}>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {rental.orderNumber}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm">
+                            <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
+                            <div className="text-xs text-gray-500">{rental.scooterColor}</div>
+                          </td>
+                          <td className="px-4 py-4 text-sm">
+                            <div className="font-medium text-gray-900">{rental.customerName}</div>
+                            <div className="text-xs text-gray-500">{rental.passportNumber}</div>
+                          </td>
+                          <td className="px-4 py-4 text-sm">
+                            {rental.whatsappNumber ? (
+                              <>
+                                <div className="text-xs text-gray-900">
+                                  {rental.whatsappCountryCode} {rental.whatsappNumber}
+                                </div>
+                                <div className="text-xs text-gray-500">WhatsApp</div>
+                              </>
+                            ) : (
+                              <div className="text-xs text-gray-400">No WhatsApp</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-sm">
+                            <div>{new Date(rental.startDate).toLocaleDateString()} {rental.startTime || '09:00'}</div>
+                            <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
+                            {/* 🔥 NEW: הוספת מספר הימים */}
+                            <div className="text-xs text-blue-600 font-medium mt-1">
+                              {pricing.days} day{pricing.days !== 1 ? 's' : ''}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-sm">
+                            <div className="space-y-1">
+                              <div className="flex items-center">
+                                <span className="font-medium text-gray-900">
+                                  ฿{pricing.actualDailyRate.toLocaleString()}/day
+                                </span>
+                                {pricing.hasDiscount && (
+                                  <span className="ml-1 text-xs text-green-600">(Discounted)</span>
+                                )}
+                              </div>
+                              {pricing.hasDiscount && (
+                                <div className="text-xs text-gray-400 line-through">
+                                  ฿{pricing.originalDailyRate.toLocaleString()}/day
+                                </div>
+                              )}
+                              <div className="text-sm font-medium text-gray-900">
+                                Total: ฿{pricing.actualTotal.toLocaleString()}
+                              </div>
+                              {pricing.hasDiscount && pricing.discount > 0 && (
+                                <div className="text-xs text-green-600">
+                                  Save: ฿{pricing.discount.toLocaleString()}
+                                </div>
+                              )}
+                              <div className="text-xs text-blue-500">
+                                Deposit: ฿{(rental.deposit || 4000).toLocaleString()}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
+                              {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm">
+                            <button
+                              onClick={() => handleUpdatePaymentStatus(rental)}
+                              className="flex items-center"
+                              title={rental.paid ? 'Mark as Unpaid' : 'Mark as Paid'}
+                            >
+                              {rental.paid ? (
+                                <span className="text-green-600">
+                                  <CheckCircle className="h-5 w-5" />
+                                </span>
+                              ) : (
+                                <span className="text-red-600">
+                                  <XCircle className="h-5 w-5" />
+                                </span>
+                              )}
+                            </button>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <button
+                                className="text-blue-600 hover:text-blue-900"
+                                onClick={() => handleEdit(rental)}
+                                title="Edit Rental"
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                className="text-red-600 hover:text-red-900"
+                                onClick={() => handleDeleteRental(rental)}
+                                title="Delete Rental"
+                              >
+                                <Trash2Icon className="h-4 w-4" />
+                              </button>
+                              {rental.status === 'pending' && (
+                                <button
+                                  className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded flex items-center"
+                                  onClick={() => handleActivateReservation(rental)}
+                                  title="Activate Reservation"
+                                >
+                                  <PlayCircle className="h-3 w-3 mr-1" />
+                                  Activate
+                                </button>
+                              )}
+                              {rental.status === 'active' && (
+                                <button
+                                  className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded"
+                                  onClick={() => handleCompleteRental(rental)}
+                                  title="Complete Rental"
+                                >
+                                  Complete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards - Visible on mobile and tablet */}
+              <div className="lg:hidden space-y-4">
                 {filteredRentals.map((rental) => {
                   const overdueRentals = getOverdueRentals()
                   const isOverdue = overdueRentals.some(r => r.id === rental.id)
@@ -684,276 +1141,143 @@ const RentalManagement = ({ onUpdate }) => {
                   const pricing = calculateRentalPricing(rental)
 
                   return (
-                    <tr key={rental.id}>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {rental.orderNumber}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
-                        <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
-                        <div className="text-xs text-gray-500">{rental.scooterColor}</div>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        <div className="font-medium text-gray-900">{rental.customerName}</div>
-                        <div className="text-xs text-gray-500">{rental.passportNumber}</div>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        {rental.whatsappNumber ? (
-                          <>
-                            <div className="text-xs text-gray-900">
-                              {rental.whatsappCountryCode} {rental.whatsappNumber}
-                            </div>
-                            <div className="text-xs text-gray-500">WhatsApp</div>
-                          </>
-                        ) : (
-                          <div className="text-xs text-gray-400">No WhatsApp</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        <div>{new Date(rental.startDate).toLocaleDateString()} {rental.startTime || '09:00'}</div>
-                        <div>{new Date(rental.endDate).toLocaleDateString()} {rental.endTime || '18:00'}</div>
-                        {/* 🔥 NEW: הוספת מספר הימים */}
-                        <div className="text-xs text-blue-600 font-medium mt-1">
-                          {pricing.days} day{pricing.days !== 1 ? 's' : ''}
+                    <div key={rental.id} className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">
+                            #{rental.orderNumber}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {rental.scooterLicense} • {rental.scooterColor}
+                          </p>
                         </div>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        <div className="space-y-1">
-                          <div className="flex items-center">
-                            <span className="font-medium text-gray-900">
-                              ฿{pricing.actualDailyRate.toLocaleString()}/day
-                            </span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
+                            {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+                          </span>
+                          <button
+                            onClick={() => handleUpdatePaymentStatus(rental)}
+                            className="p-1"
+                          >
+                            {rental.paid ? (
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-red-600" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mb-3 pb-3 border-b border-gray-200">
+                        <h4 className="font-medium text-gray-900">{rental.customerName}</h4>
+                        <p className="text-sm text-gray-500">{rental.passportNumber}</p>
+                        {rental.whatsappNumber && (
+                          <p className="text-sm text-blue-600">
+                            WhatsApp: {rental.whatsappCountryCode} {rental.whatsappNumber}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Start:</span>
+                          <div className="font-medium">{new Date(rental.startDate).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">{rental.startTime || '09:00'}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">End:</span>
+                          <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
+                        </div>
+                        {/* 🔥 NEW: הוספת מספר הימים במובייל */}
+                        <div className="col-span-2">
+                          <span className="text-gray-500">Duration:</span>
+                          <div className="font-medium text-blue-600">
+                            {pricing.days} day{pricing.days !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Daily Rate:</span>
+                          <div className="space-y-1">
+                            <div className="font-medium text-green-600">
+                              ฿{pricing.actualDailyRate.toLocaleString()}
+                              {pricing.hasDiscount && (
+                                <span className="text-xs ml-1">(Discounted)</span>
+                              )}
+                            </div>
                             {pricing.hasDiscount && (
-                              <span className="ml-1 text-xs text-green-600">(Discounted)</span>
+                              <div className="text-xs text-gray-400 line-through">
+                                Was: ฿{pricing.originalDailyRate.toLocaleString()}
+                              </div>
                             )}
                           </div>
-                          {pricing.hasDiscount && (
-                            <div className="text-xs text-gray-400 line-through">
-                              ฿{pricing.originalDailyRate.toLocaleString()}/day
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Rental Total:</span>
+                          <div className="space-y-1">
+                            <div className="font-medium text-lg text-gray-900">
+                              ฿{pricing.actualTotal.toLocaleString()}
                             </div>
-                          )}
-                          <div className="text-sm font-medium text-gray-900">
-                            Total: ฿{pricing.actualTotal.toLocaleString()}
-                          </div>
-                          {pricing.hasDiscount && pricing.discount > 0 && (
-                            <div className="text-xs text-green-600">
-                              Save: ฿{pricing.discount.toLocaleString()}
-                            </div>
-                          )}
-                          <div className="text-xs text-blue-500">
-                            Deposit: ฿{(rental.deposit || 4000).toLocaleString()}
+                            {pricing.hasDiscount && pricing.discount > 0 && (
+                              <div className="text-xs text-green-600">
+                                Saved: ฿{pricing.discount.toLocaleString()}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
-                          {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
-                        <button 
-                          onClick={() => handleUpdatePaymentStatus(rental)}
-                          className="flex items-center"
-                          title={rental.paid ? 'Mark as Unpaid' : 'Mark as Paid'}
+                        <div className="col-span-2">
+                          <span className="text-gray-500">Deposit:</span>
+                          <div className="font-medium text-blue-600">฿{(rental.deposit || 4000).toLocaleString()}</div>
+                        </div>
+                      </div>
+
+                      {rental.notes && (
+                        <div className="mb-3 pb-3 border-b border-gray-200">
+                          <span className="text-gray-500 text-sm">Notes:</span>
+                          <p className="text-sm text-gray-700 mt-1">{rental.notes}</p>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleEdit(rental)}
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                         >
-                          {rental.paid ? (
-                            <span className="text-green-600">
-                              <CheckCircle className="h-5 w-5" />
-                            </span>
-                          ) : (
-                            <span className="text-red-600">
-                              <XCircle className="h-5 w-5" />
-                            </span>
-                          )}
+                          <PencilIcon className="h-4 w-4 mr-1" />
+                          Edit
                         </button>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-900"
-                            onClick={() => handleEdit(rental)}
-                            title="Edit Rental"
+                        <button
+                          onClick={() => handleDeleteRental(rental)}
+                          className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
+                        >
+                          <Trash2Icon className="h-4 w-4 mr-1" />
+                          Delete
+                        </button>
+                        {rental.status === 'pending' && (
+                          <button
+                            onClick={() => handleActivateReservation(rental)}
+                            className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50"
                           >
-                            <PencilIcon className="h-4 w-4" />
+                            <PlayCircle className="h-4 w-4 mr-1" />
+                            Activate
                           </button>
-                          <button 
-                            className="text-red-600 hover:text-red-900"
-                            onClick={() => handleDeleteRental(rental)}
-                            title="Delete Rental"
+                        )}
+                        {rental.status === 'active' && (
+                          <button
+                            onClick={() => handleCompleteRental(rental)}
+                            className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50"
                           >
-                            <Trash2Icon className="h-4 w-4" />
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Complete
                           </button>
-                          {rental.status === 'pending' && (
-                            <button 
-                              className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded flex items-center"
-                              onClick={() => handleActivateReservation(rental)}
-                              title="Activate Reservation"
-                            >
-                              <PlayCircle className="h-3 w-3 mr-1" />
-                              Activate
-                            </button>
-                          )}
-                          {rental.status === 'active' && (
-                            <button 
-                              className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded"
-                              onClick={() => handleCompleteRental(rental)}
-                              title="Complete Rental"
-                            >
-                              Complete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                        )}
+                      </div>
+                    </div>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Cards - Visible on mobile and tablet */}
-          <div className="lg:hidden space-y-4">
-            {filteredRentals.map((rental) => {
-              const overdueRentals = getOverdueRentals()
-              const isOverdue = overdueRentals.some(r => r.id === rental.id)
-              const displayStatus = isOverdue ? 'overdue' : rental.status
-              const pricing = calculateRentalPricing(rental)
-
-              return (
-                <div key={rental.id} className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">
-                        #{rental.orderNumber}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {rental.scooterLicense} • {rental.scooterColor}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(displayStatus)}`}>
-                        {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
-                      </span>
-                      <button 
-                        onClick={() => handleUpdatePaymentStatus(rental)}
-                        className="p-1"
-                      >
-                        {rental.paid ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-red-600" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mb-3 pb-3 border-b border-gray-200">
-                    <h4 className="font-medium text-gray-900">{rental.customerName}</h4>
-                    <p className="text-sm text-gray-500">{rental.passportNumber}</p>
-                    {rental.whatsappNumber && (
-                      <p className="text-sm text-blue-600">
-                        WhatsApp: {rental.whatsappCountryCode} {rental.whatsappNumber}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Start:</span>
-                      <div className="font-medium">{new Date(rental.startDate).toLocaleDateString()}</div>
-                      <div className="text-xs text-gray-500">{rental.startTime || '09:00'}</div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">End:</span>
-                      <div className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</div>
-                      <div className="text-xs text-gray-500">{rental.endTime || '18:00'}</div>
-                    </div>
-                    {/* 🔥 NEW: הוספת מספר הימים במובייל */}
-                    <div className="col-span-2">
-                      <span className="text-gray-500">Duration:</span>
-                      <div className="font-medium text-blue-600">
-                        {pricing.days} day{pricing.days !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Daily Rate:</span>
-                      <div className="space-y-1">
-                        <div className="font-medium text-green-600">
-                          ฿{pricing.actualDailyRate.toLocaleString()}
-                          {pricing.hasDiscount && (
-                            <span className="text-xs ml-1">(Discounted)</span>
-                          )}
-                        </div>
-                        {pricing.hasDiscount && (
-                          <div className="text-xs text-gray-400 line-through">
-                            Was: ฿{pricing.originalDailyRate.toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Rental Total:</span>
-                      <div className="space-y-1">
-                        <div className="font-medium text-lg text-gray-900">
-                          ฿{pricing.actualTotal.toLocaleString()}
-                        </div>
-                        {pricing.hasDiscount && pricing.discount > 0 && (
-                          <div className="text-xs text-green-600">
-                            Saved: ฿{pricing.discount.toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-gray-500">Deposit:</span>
-                      <div className="font-medium text-blue-600">฿{(rental.deposit || 4000).toLocaleString()}</div>
-                    </div>
-                  </div>
-
-                  {rental.notes && (
-                    <div className="mb-3 pb-3 border-b border-gray-200">
-                      <span className="text-gray-500 text-sm">Notes:</span>
-                      <p className="text-sm text-gray-700 mt-1">{rental.notes}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2">
-                    <button 
-                      onClick={() => handleEdit(rental)}
-                      className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                    >
-                      <PencilIcon className="h-4 w-4 mr-1" />
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteRental(rental)}
-                      className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
-                    >
-                      <Trash2Icon className="h-4 w-4 mr-1" />
-                      Delete
-                    </button>
-                    {rental.status === 'pending' && (
-                      <button 
-                        onClick={() => handleActivateReservation(rental)}
-                        className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50"
-                      >
-                        <PlayCircle className="h-4 w-4 mr-1" />
-                        Activate
-                      </button>
-                    )}
-                    {rental.status === 'active' && (
-                      <button 
-                        onClick={() => handleCompleteRental(rental)}
-                        className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Complete
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
