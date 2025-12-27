@@ -506,80 +506,83 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
             <h3 className="text-lg font-medium text-gray-900">Quick Availability Check</h3>
           </div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-2 sm:gap-3 flex-1">
-            {/* תאריך התחלה */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
-                <Calendar className="h-3 w-3 mr-1" />
-                From
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                min={new Date().toISOString().split('T')[0]}
-              />
-              {isSunday(startDate) && (
-                <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
-                  <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0" />
-                  Sunday!
-                </p>
-              )}
-            </div>
+          <div className="flex-1">
+            {/* First row: From date (full width on mobile) and Days */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+              {/* תאריך התחלה */}
+              <div className="col-span-2 sm:col-span-1 flex flex-col">
+                <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  From
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                {isSunday(startDate) && (
+                  <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
+                    <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                    Sunday!
+                  </p>
+                )}
+              </div>
 
-            {/* מספר ימים */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
-                <Clock className="h-3 w-3 mr-1" />
-                Days
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="365"
-                value={rentalDays}
-                onChange={(e) => handleDaysChange(e.target.value)}
-                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-              />
-            </div>
+              {/* מספר ימים */}
+              <div className="col-span-1 flex flex-col">
+                <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Days
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={rentalDays}
+                  onChange={(e) => handleDaysChange(e.target.value)}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center bg-white"
+                />
+              </div>
 
-            {/* תאריך סיום */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
-                <Calendar className="h-3 w-3 mr-1" />
-                To
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => handleEndDateChange(e.target.value)}
-                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                min={startDate || new Date().toISOString().split('T')[0]}
-              />
-              {isSunday(endDate) && (
-                <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
-                  <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0" />
-                  Sunday!
-                </p>
-              )}
-            </div>
+              {/* תאריך סיום */}
+              <div className="col-span-2 sm:col-span-1 flex flex-col">
+                <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  To
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => handleEndDateChange(e.target.value)}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  min={startDate || new Date().toISOString().split('T')[0]}
+                />
+                {isSunday(endDate) && (
+                  <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
+                    <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                    Sunday!
+                  </p>
+                )}
+              </div>
 
-            {/* מספר קטנועים */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
-                <Users className="h-3 w-3 mr-1" />
-                Scooters
-              </label>
-              <select
-                value={numberOfScooters}
-                onChange={(e) => setNumberOfScooters(parseInt(e.target.value))}
-                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {[1, 2, 3, 4, 5].map(num => (
-                  <option key={num} value={num}>{num}</option>
-                ))}
-              </select>
+              {/* מספר קטנועים */}
+              <div className="col-span-1 flex flex-col">
+                <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                  <Users className="h-3 w-3 mr-1" />
+                  Scooters
+                </label>
+                <select
+                  value={numberOfScooters}
+                  onChange={(e) => setNumberOfScooters(parseInt(e.target.value))}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  {[1, 2, 3, 4, 5].map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -635,62 +638,62 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
                     {/* TOP RECOMMENDATIONS */}
                     {perScooterAvailability.topPicks && (
-                      <div className="bg-white border-2 border-blue-300 rounded-lg p-2 sm:p-3 mb-4">
-                        <h5 className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-2 sm:mb-3">
+                      <div className="bg-white border-2 border-blue-300 rounded-lg p-3 mb-4">
+                        <h5 className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-3">
                           Top Recommendations
                         </h5>
-                        <div className={`grid gap-2 sm:gap-3 ${perScooterAvailability.topPicks.isSameScooter ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                        <div className={`flex flex-col gap-3 ${perScooterAvailability.topPicks.isSameScooter ? '' : 'sm:flex-row'}`}>
                           {/* Longest Option */}
                           {perScooterAvailability.topPicks.longest && (
-                            <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-300 rounded-lg p-2 sm:p-3">
-                              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                                <div className="flex items-center space-x-1 sm:space-x-2">
-                                  <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
-                                  <span className="text-xs sm:text-sm font-bold text-purple-900">Longest</span>
+                            <div className="flex-1 bg-gradient-to-r from-purple-50 to-purple-100 border-2 border-purple-300 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <Trophy className="h-5 w-5 text-purple-600" />
+                                  <span className="text-sm font-bold text-purple-900">Longest</span>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <Bike className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
-                                  <span className="text-sm font-medium text-gray-900">
+                                <div className="flex items-center space-x-1 bg-white px-2 py-1 rounded-full">
+                                  <Bike className="h-4 w-4 text-purple-600" />
+                                  <span className="text-sm font-semibold text-purple-900">
                                     {perScooterAvailability.topPicks.longest.scooter.color}
                                   </span>
                                 </div>
                               </div>
-                              <div className="text-sm sm:text-base text-purple-800 font-semibold">
-                                {perScooterAvailability.topPicks.longest.longestPeriod?.days} days in a row
+                              <div className="text-base text-purple-800 font-bold">
+                                {perScooterAvailability.topPicks.longest.longestPeriod?.days} {perScooterAvailability.topPicks.longest.longestPeriod?.days === 1 ? 'day' : 'days'} in a row
                               </div>
-                              <div className="text-xs text-purple-700">
-                                {perScooterAvailability.topPicks.longest.longestPeriod?.startDate.toLocaleDateString()} → {perScooterAvailability.topPicks.longest.longestPeriod?.endDate.toLocaleDateString()}
+                              <div className="text-sm text-purple-700 mt-1">
+                                {perScooterAvailability.topPicks.longest.longestPeriod?.startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} → {perScooterAvailability.topPicks.longest.longestPeriod?.endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                               </div>
                             </div>
                           )}
 
                           {/* Earliest Option - only show if different from longest */}
                           {perScooterAvailability.topPicks.earliest && !perScooterAvailability.topPicks.isSameScooter && (
-                            <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-300 rounded-lg p-2 sm:p-3">
-                              <div className="flex items-center justify-between mb-1 sm:mb-2">
-                                <div className="flex items-center space-x-1 sm:space-x-2">
-                                  <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-                                  <span className="text-xs sm:text-sm font-bold text-green-900">Earliest</span>
+                            <div className="flex-1 bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <Zap className="h-5 w-5 text-green-600" />
+                                  <span className="text-sm font-bold text-green-900">Earliest</span>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <Bike className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-                                  <span className="text-sm font-medium text-gray-900">
+                                <div className="flex items-center space-x-1 bg-white px-2 py-1 rounded-full">
+                                  <Bike className="h-4 w-4 text-green-600" />
+                                  <span className="text-sm font-semibold text-green-900">
                                     {perScooterAvailability.topPicks.earliest.scooter.color}
                                   </span>
                                 </div>
                               </div>
-                              <div className="text-sm sm:text-base text-green-800 font-semibold">
-                                {perScooterAvailability.topPicks.earliest.earliestPeriod?.days} days available
+                              <div className="text-base text-green-800 font-bold">
+                                {perScooterAvailability.topPicks.earliest.earliestPeriod?.days} {perScooterAvailability.topPicks.earliest.earliestPeriod?.days === 1 ? 'day' : 'days'} available
                               </div>
-                              <div className="text-xs text-green-700">
-                                {perScooterAvailability.topPicks.earliest.earliestPeriod?.startDate.toLocaleDateString()} → {perScooterAvailability.topPicks.earliest.earliestPeriod?.endDate.toLocaleDateString()}
+                              <div className="text-sm text-green-700 mt-1">
+                                {perScooterAvailability.topPicks.earliest.earliestPeriod?.startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} → {perScooterAvailability.topPicks.earliest.earliestPeriod?.endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                               </div>
                             </div>
                           )}
 
                           {/* If same scooter, show combined message */}
                           {perScooterAvailability.topPicks.isSameScooter && (
-                            <div className="text-xs text-blue-700 mt-1">
+                            <div className="text-xs text-blue-700 mt-1 bg-blue-50 p-2 rounded">
                               This scooter has both the longest availability and the earliest start date.
                             </div>
                           )}
