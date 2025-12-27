@@ -30,7 +30,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const handleStartDateChange = (newStartDate) => {
     setStartDate(newStartDate)
     if (newStartDate && rentalDays > 0) {
-      const newEndDate = new Date(newStartDate)
+      const newEndDate = new Date(newStartDate + 'T00:00:00')
       newEndDate.setDate(newEndDate.getDate() + rentalDays)
       setEndDate(newEndDate.toISOString().split('T')[0])
     }
@@ -41,7 +41,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     const days = Math.max(1, parseInt(newDays) || 1)
     setRentalDays(days)
     if (startDate) {
-      const newEndDate = new Date(startDate)
+      const newEndDate = new Date(startDate + 'T00:00:00')
       newEndDate.setDate(newEndDate.getDate() + days)
       setEndDate(newEndDate.toISOString().split('T')[0])
     }
@@ -51,9 +51,10 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const handleEndDateChange = (newEndDate) => {
     setEndDate(newEndDate)
     if (startDate && newEndDate) {
-      const start = new Date(startDate)
-      const end = new Date(newEndDate)
-      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+      // Use UTC dates to avoid timezone issues
+      const start = new Date(startDate + 'T00:00:00')
+      const end = new Date(newEndDate + 'T00:00:00')
+      const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
       if (diffDays > 0) {
         setRentalDays(diffDays)
       }
@@ -548,9 +549,9 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                       if (val !== '' && startDate) {
                         const days = parseInt(val)
                         if (days > 0) {
-                          const newEndDate = new Date(startDate)
-                          newEndDate.setDate(newEndDate.getDate() + days)
-                          setEndDate(newEndDate.toISOString().split('T')[0])
+                          const start = new Date(startDate + 'T00:00:00')
+                          start.setDate(start.getDate() + days)
+                          setEndDate(start.toISOString().split('T')[0])
                         }
                       }
                     }
