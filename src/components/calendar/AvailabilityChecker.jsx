@@ -508,9 +508,9 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           
           <div className="flex-1">
             {/* 2x2 grid on mobile, 1x4 on desktop */}
-            <div className="grid grid-cols-4 gap-2 sm:gap-3">
+            <div className="grid grid-cols-4 gap-x-1 gap-y-2 sm:gap-3">
               {/* תאריך התחלה */}
-              <div className="col-span-2 sm:col-span-1 flex flex-col">
+              <div className="col-span-2 sm:col-span-1 flex flex-col pr-2 sm:pr-0">
                 <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
                   <Calendar className="h-3 w-3 mr-1" />
                   From
@@ -531,7 +531,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               </div>
 
               {/* מספר ימים */}
-              <div className="col-span-2 sm:col-span-1 flex flex-col">
+              <div className="col-span-2 sm:col-span-1 flex flex-col pl-2 sm:pl-0">
                 <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
                   <Clock className="h-3 w-3 mr-1" />
                   Days
@@ -566,7 +566,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               </div>
 
               {/* תאריך סיום */}
-              <div className="col-span-2 sm:col-span-1 flex flex-col">
+              <div className="col-span-2 sm:col-span-1 flex flex-col pr-2 sm:pr-0">
                 <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
                   <Calendar className="h-3 w-3 mr-1" />
                   To
@@ -587,7 +587,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               </div>
 
               {/* מספר קטנועים */}
-              <div className="col-span-2 sm:col-span-1 flex flex-col">
+              <div className="col-span-2 sm:col-span-1 flex flex-col pl-2 sm:pl-0">
                 <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
                   <Users className="h-3 w-3 mr-1" />
                   Scooters
