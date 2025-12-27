@@ -420,7 +420,7 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
-  // 🔥 UPDATED: מיון השכרות מהישנה לחדשה לפי תאריך השכרה
+  // Sort rentals based on active tab
   const filteredRentals = rentals
     .filter(rental => {
       if (activeTab === 'pending') {
@@ -431,7 +431,13 @@ const RentalManagement = ({ onUpdate }) => {
       return rental.status === 'completed'
     })
     .sort((a, b) => {
-      // מיון לפי תאריך השכרה (startDate) מהישן לחדש
+      if (activeTab === 'completed') {
+        // For completed rentals: sort by completedAt timestamp, latest first
+        const aCompleted = new Date(a.completedAt || a.endDate)
+        const bCompleted = new Date(b.completedAt || b.endDate)
+        return bCompleted - aCompleted
+      }
+      // For pending and active: sort by start date, oldest first
       const aStart = new Date(a.startDate)
       const bStart = new Date(b.startDate)
       return aStart - bStart
@@ -541,10 +547,10 @@ const RentalManagement = ({ onUpdate }) => {
                           <div key={rental.id} className="bg-white rounded-md p-3 border border-gray-200 hover:border-gray-300 transition-colors">
                             <div className="flex items-center justify-between mb-2">
                               <div className="font-medium text-gray-900">
-                                {rental.scooterLicense}
+                                {rental.scooterColor}
                               </div>
                               <div className="text-xs text-gray-500">
-                                #{rental.orderNumber}
+                                {rental.scooterLicense}
                               </div>
                             </div>
                             
@@ -721,8 +727,8 @@ const RentalManagement = ({ onUpdate }) => {
                                 {rental.orderNumber}
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
-                                <div className="text-xs text-gray-500">{rental.scooterColor}</div>
+                                <div className="font-medium text-gray-900">{rental.scooterColor}</div>
+                                <div className="text-xs text-gray-500">{rental.scooterLicense}</div>
                               </td>
                               <td className="px-4 py-4 text-sm">
                                 <div className="font-medium text-gray-900">{rental.customerName}</div>
@@ -842,7 +848,7 @@ const RentalManagement = ({ onUpdate }) => {
                                 #{rental.orderNumber}
                               </h3>
                               <p className="text-sm text-gray-600">
-                                {rental.scooterLicense} • {rental.scooterColor}
+                                {rental.scooterColor} • {rental.scooterLicense}
                               </p>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -1011,8 +1017,8 @@ const RentalManagement = ({ onUpdate }) => {
                             {rental.orderNumber}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm">
-                            <div className="font-medium text-gray-900">{rental.scooterLicense}</div>
-                            <div className="text-xs text-gray-500">{rental.scooterColor}</div>
+                            <div className="font-medium text-gray-900">{rental.scooterColor}</div>
+                            <div className="text-xs text-gray-500">{rental.scooterLicense}</div>
                           </td>
                           <td className="px-4 py-4 text-sm">
                             <div className="font-medium text-gray-900">{rental.customerName}</div>
@@ -1148,7 +1154,7 @@ const RentalManagement = ({ onUpdate }) => {
                             #{rental.orderNumber}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            {rental.scooterLicense} • {rental.scooterColor}
+                            {rental.scooterColor} • {rental.scooterLicense}
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">

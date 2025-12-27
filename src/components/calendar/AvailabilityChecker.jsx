@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Calendar, Clock, Bike, AlertCircle, Check, X, CalendarDays, Users, TrendingUp } from 'lucide-react'
+import { Search, Calendar, Clock, Bike, AlertCircle, Check, X, CalendarDays, Users, TrendingUp, Trophy, Zap } from 'lucide-react'
 
 const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const [startDate, setStartDate] = useState('')
@@ -11,22 +11,54 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [numberOfScooters, setNumberOfScooters] = useState(1)
   const [partialAvailability, setPartialAvailability] = useState(null)
+  const [perScooterAvailability, setPerScooterAvailability] = useState(null)
+  const [rentalDays, setRentalDays] = useState(1)
 
-  // אוטו-מילוי תאריך התחלה להיום
+  // אוטו-מילוי תאריך התחלה להיום ותאריך סיום למחר
   useEffect(() => {
     if (!startDate) {
-      setStartDate(new Date().toISOString().split('T')[0])
+      const today = new Date().toISOString().split('T')[0]
+      setStartDate(today)
+      // Set initial end date to tomorrow
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      setEndDate(tomorrow.toISOString().split('T')[0])
     }
   }, [])
 
-  // אוטו-מילוי תאריך סיום כשמוגדר תאריך התחלה
-  useEffect(() => {
-    if (startDate && !endDate) {
-      const nextDay = new Date(startDate)
-      nextDay.setDate(nextDay.getDate() + 1)
-      setEndDate(nextDay.toISOString().split('T')[0])
+  // כשמשנים תאריך התחלה - מחשבים מחדש תאריך סיום לפי מספר הימים
+  const handleStartDateChange = (newStartDate) => {
+    setStartDate(newStartDate)
+    if (newStartDate && rentalDays > 0) {
+      const newEndDate = new Date(newStartDate)
+      newEndDate.setDate(newEndDate.getDate() + rentalDays)
+      setEndDate(newEndDate.toISOString().split('T')[0])
     }
-  }, [startDate])
+  }
+
+  // כשמשנים מספר ימים - מחשבים מחדש תאריך סיום
+  const handleDaysChange = (newDays) => {
+    const days = Math.max(1, parseInt(newDays) || 1)
+    setRentalDays(days)
+    if (startDate) {
+      const newEndDate = new Date(startDate)
+      newEndDate.setDate(newEndDate.getDate() + days)
+      setEndDate(newEndDate.toISOString().split('T')[0])
+    }
+  }
+
+  // כשמשנים תאריך סיום - מחשבים מחדש מספר ימים
+  const handleEndDateChange = (newEndDate) => {
+    setEndDate(newEndDate)
+    if (startDate && newEndDate) {
+      const start = new Date(startDate)
+      const end = new Date(newEndDate)
+      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+      if (diffDays > 0) {
+        setRentalDays(diffDays)
+      }
+    }
+  }
 
   // פונקציה למציאת תקופות זמינות חלקיות
   const findPartialAvailability = (scooters, rentals, requestedStartDate, requestedEndDate, numScooters) => {
@@ -34,44 +66,44 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     const end = new Date(requestedEndDate)
     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
     const availability = []
-    
+
     // בודק כל יום בטווח
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
       const currentDate = new Date(d)
       const nextDate = new Date(d)
       nextDate.setDate(nextDate.getDate() + 1)
-      
+
       // סופר כמה קטנועים זמינים באותו יום
       const availableOnDay = scooters.filter(scooter => {
         if (scooter.status === 'maintenance') return false
-        
+
         const hasConflict = rentals.some(rental => {
           if (rental.scooterId !== scooter.id) return false
           if (rental.status !== 'active' && rental.status !== 'pending') return false
-          
+
           const rentalStart = new Date(rental.startDate)
           const rentalEnd = new Date(rental.endDate)
-          
-          return currentDate < rentalEnd && nextDate > rentalStart
+
+          return currentDate <= rentalEnd && nextDate > rentalStart
         })
-        
+
         return !hasConflict
       })
-      
+
       availability.push({
         date: new Date(d),
         availableCount: availableOnDay.length,
         availableScooters: availableOnDay
       })
     }
-    
+
     // מוצא תקופות רציפות של זמינות
     const periods = []
     let currentPeriod = null
-    
+
     for (let i = 0; i < availability.length; i++) {
       const day = availability[i]
-      
+
       if (day.availableCount >= numScooters) {
         if (!currentPeriod) {
           currentPeriod = {
@@ -91,19 +123,150 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
         }
       }
     }
-    
+
     if (currentPeriod) {
       periods.push(currentPeriod)
     }
-    
+
     // מיון לפי אורך התקופה (הארוכה ביותר קודם)
     periods.sort((a, b) => b.days - a.days)
-    
+
     return {
       totalRequestedDays: totalDays,
       availablePeriods: periods,
       bestOption: periods[0] || null,
       hasFullAvailability: periods.length === 1 && periods[0]?.days === totalDays
+    }
+  }
+
+  // NEW: פונקציה לחישוב זמינות חלקית של כל קטנוע בטווח התאריכים המבוקש
+  const findPerScooterAvailability = (scooters, rentals, requestedStartDate, requestedEndDate) => {
+    const start = new Date(requestedStartDate)
+    const end = new Date(requestedEndDate)
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+
+    const scooterAvailability = scooters
+      .filter(scooter => scooter.status !== 'maintenance')
+      .map(scooter => {
+        // מצא את כל ההשכרות של הקטנוע הזה שחופפות לטווח המבוקש
+        const scooterRentals = rentals.filter(rental =>
+          rental.scooterId === scooter.id &&
+          (rental.status === 'active' || rental.status === 'pending')
+        )
+
+        // בנה רשימת ימים זמינים בטווח
+        const availableDays = []
+        for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+          const currentDate = new Date(d)
+          const nextDate = new Date(d)
+          nextDate.setDate(nextDate.getDate() + 1)
+
+          const hasConflict = scooterRentals.some(rental => {
+            const rentalStart = new Date(rental.startDate)
+            const rentalEnd = new Date(rental.endDate)
+            return currentDate <= rentalEnd && nextDate > rentalStart
+          })
+
+          if (!hasConflict) {
+            availableDays.push(new Date(currentDate))
+          }
+        }
+
+        // מצא תקופות רציפות של זמינות
+        const periods = []
+        let currentPeriod = null
+
+        for (let i = 0; i < availableDays.length; i++) {
+          const day = availableDays[i]
+
+          if (!currentPeriod) {
+            currentPeriod = {
+              startDate: new Date(day),
+              endDate: new Date(day),
+              days: 1
+            }
+          } else {
+            const expectedNext = new Date(currentPeriod.endDate)
+            expectedNext.setDate(expectedNext.getDate() + 1)
+
+            if (day.getTime() === expectedNext.getTime()) {
+              currentPeriod.endDate = new Date(day)
+              currentPeriod.days++
+            } else {
+              periods.push(currentPeriod)
+              currentPeriod = {
+                startDate: new Date(day),
+                endDate: new Date(day),
+                days: 1
+              }
+            }
+          }
+        }
+
+        if (currentPeriod) {
+          periods.push(currentPeriod)
+        }
+
+        // מיין תקופות לפי אורך (הארוכה ביותר ראשונה)
+        periods.sort((a, b) => b.days - a.days)
+
+        const longestPeriod = periods[0] || null
+        const totalAvailableDays = availableDays.length
+        const isFullyAvailable = totalAvailableDays === totalDays
+
+        // מצא את התקופה הראשונה (המוקדמת ביותר)
+        const earliestPeriod = periods.length > 0
+          ? periods.reduce((earliest, p) =>
+              p.startDate < earliest.startDate ? p : earliest
+            , periods[0])
+          : null
+
+        return {
+          scooter,
+          totalAvailableDays,
+          totalRequestedDays: totalDays,
+          availabilityPercent: Math.round((totalAvailableDays / totalDays) * 100),
+          isFullyAvailable,
+          longestPeriod,
+          earliestPeriod,
+          allPeriods: periods
+        }
+      })
+      // סנן רק קטנועים עם לפחות יום אחד זמין
+      .filter(item => item.totalAvailableDays > 0)
+
+    // מיין לפי התקופה הרציפה הארוכה ביותר
+    const sortedByLongest = [...scooterAvailability].sort((a, b) => {
+      const aLongest = a.longestPeriod?.days || 0
+      const bLongest = b.longestPeriod?.days || 0
+      if (bLongest !== aLongest) return bLongest - aLongest
+      return b.totalAvailableDays - a.totalAvailableDays
+    })
+
+    // מיין לפי התקופה המוקדמת ביותר
+    const sortedByEarliest = [...scooterAvailability].sort((a, b) => {
+      const aEarliest = a.earliestPeriod?.startDate || new Date('9999-12-31')
+      const bEarliest = b.earliestPeriod?.startDate || new Date('9999-12-31')
+      if (aEarliest < bEarliest) return -1
+      if (aEarliest > bEarliest) return 1
+      // אם אותו תאריך התחלה, העדף את התקופה הארוכה יותר
+      return (b.earliestPeriod?.days || 0) - (a.earliestPeriod?.days || 0)
+    })
+
+    // מצא את ה-top picks
+    const longestOption = sortedByLongest[0] || null
+    const earliestOption = sortedByEarliest[0] || null
+
+    return {
+      totalRequestedDays: totalDays,
+      scooterOptions: sortedByLongest,
+      hasFullyAvailableScooter: scooterAvailability.some(s => s.isFullyAvailable),
+      topPicks: {
+        longest: longestOption,
+        earliest: earliestOption,
+        // בדוק אם הם אותו קטנוע
+        isSameScooter: longestOption?.scooter.id === earliestOption?.scooter.id
+      }
     }
   }
 
@@ -204,6 +367,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     setIsChecking(true)
     setShowResults(false)
     setPartialAvailability(null)
+    setPerScooterAvailability(null)
 
     try {
       // סימולציה של זמן טעינה קצר
@@ -230,7 +394,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           
           // בדיקת חפיפה בתאריכים
           const hasDateConflict = (
-            requestedStartDate < rentalEndDate && 
+            requestedStartDate <= rentalEndDate &&
             requestedEndDate > rentalStartDate
           )
           
@@ -288,8 +452,18 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           numberOfScooters
         )
         setPartialAvailability(partial)
+
+        // NEW: חישוב זמינות חלקית לכל קטנוע
+        const perScooter = findPerScooterAvailability(
+          scooters,
+          rentals,
+          requestedStartDate,
+          requestedEndDate
+        )
+        setPerScooterAvailability(perScooter)
       } else {
         setPartialAvailability(null)
+        setPerScooterAvailability(null)
       }
       
       setAvailableScooters(available)
@@ -311,17 +485,9 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     setAvailableScooters([])
     setUnavailableScooters([])
     setPartialAvailability(null)
+    setPerScooterAvailability(null)
     setNumberOfScooters(1)
   }
-
-  const calculateDays = () => {
-    if (!startDate || !endDate) return 0
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    return Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-  }
-
-  const days = calculateDays()
 
   // Helper function to check if a date is Sunday
   const isSunday = (dateString) => {
@@ -340,75 +506,85 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
             <h3 className="text-lg font-medium text-gray-900">Quick Availability Check</h3>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-3 flex-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-2 sm:gap-3 flex-1">
             {/* תאריך התחלה */}
             <div className="flex flex-col">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <label className="text-sm font-medium text-gray-600">From:</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  min={new Date().toISOString().split('T')[0]}
-                />
-              </div>
+              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                <Calendar className="h-3 w-3 mr-1" />
+                From
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                min={new Date().toISOString().split('T')[0]}
+              />
               {isSunday(startDate) && (
-                <p className="mt-1 text-xs text-yellow-600 flex items-center ml-20">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Note: Start date is a Sunday
+                <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
+                  <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                  Sunday!
                 </p>
               )}
             </div>
-            
+
+            {/* מספר ימים */}
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                <Clock className="h-3 w-3 mr-1" />
+                Days
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={rentalDays}
+                onChange={(e) => handleDaysChange(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+              />
+            </div>
+
             {/* תאריך סיום */}
             <div className="flex flex-col">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <label className="text-sm font-medium text-gray-600">To:</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  min={startDate || new Date().toISOString().split('T')[0]}
-                />
-              </div>
+              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                <Calendar className="h-3 w-3 mr-1" />
+                To
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => handleEndDateChange(e.target.value)}
+                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                min={startDate || new Date().toISOString().split('T')[0]}
+              />
               {isSunday(endDate) && (
-                <p className="mt-1 text-xs text-yellow-600 flex items-center ml-16">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Note: End date is a Sunday
+                <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
+                  <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                  Sunday!
                 </p>
               )}
             </div>
-            
+
             {/* מספר קטנועים */}
-            <div className="flex items-center space-x-2">
-              <Users className="h-4 w-4 text-gray-500" />
-              <label className="text-sm font-medium text-gray-600">Scooters:</label>
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
+                <Users className="h-3 w-3 mr-1" />
+                Scooters
+              </label>
               <select
                 value={numberOfScooters}
                 onChange={(e) => setNumberOfScooters(parseInt(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {[1, 2, 3, 4, 5].map(num => (
                   <option key={num} value={num}>{num}</option>
                 ))}
               </select>
             </div>
-            
-            {/* מידע על משך השכרה */}
-            {days > 0 && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Clock className="h-4 w-4" />
-                <span>{days} day{days !== 1 ? 's' : ''}</span>
-              </div>
-            )}
           </div>
-          
+
           {/* כפתורי פעולה */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-3 sm:mt-0">
             <button
               onClick={checkAvailability}
               disabled={isChecking || !startDate || !endDate}
@@ -442,23 +618,144 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
       {/* תוצאות - מוצג רק כשיש חיפוש */}
       {showResults && (
-        <div className="border-t border-blue-200 bg-white">
-          <div className="p-4 space-y-4">
-            {/* הודעת זמינות חלקית */}
-            {partialAvailability && !partialAvailability.hasFullAvailability && (
+        <div className="border-t border-blue-200 bg-white rounded-b-lg">
+          <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+            {/* הודעת זמינות חלקית - מציג אופציות לפי קטנוע */}
+            {availableScooters.length === 0 && perScooterAvailability && perScooterAvailability.scooterOptions.length > 0 && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+                <div className="flex items-start space-x-2 sm:space-x-3">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-bold text-amber-900 mb-1 sm:mb-2">
+                      No scooter available for all {perScooterAvailability.totalRequestedDays} days
+                    </h4>
+                    <p className="text-xs sm:text-sm text-amber-800 mb-2 sm:mb-3">
+                      Here's what we can offer:
+                    </p>
+
+                    {/* TOP RECOMMENDATIONS */}
+                    {perScooterAvailability.topPicks && (
+                      <div className="bg-white border-2 border-blue-300 rounded-lg p-2 sm:p-3 mb-4">
+                        <h5 className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-2 sm:mb-3">
+                          Top Recommendations
+                        </h5>
+                        <div className={`grid gap-2 sm:gap-3 ${perScooterAvailability.topPicks.isSameScooter ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                          {/* Longest Option */}
+                          {perScooterAvailability.topPicks.longest && (
+                            <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-300 rounded-lg p-2 sm:p-3">
+                              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                                <div className="flex items-center space-x-1 sm:space-x-2">
+                                  <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                                  <span className="text-xs sm:text-sm font-bold text-purple-900">Longest</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <Bike className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {perScooterAvailability.topPicks.longest.scooter.color}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-sm sm:text-base text-purple-800 font-semibold">
+                                {perScooterAvailability.topPicks.longest.longestPeriod?.days} days in a row
+                              </div>
+                              <div className="text-xs text-purple-700">
+                                {perScooterAvailability.topPicks.longest.longestPeriod?.startDate.toLocaleDateString()} → {perScooterAvailability.topPicks.longest.longestPeriod?.endDate.toLocaleDateString()}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Earliest Option - only show if different from longest */}
+                          {perScooterAvailability.topPicks.earliest && !perScooterAvailability.topPicks.isSameScooter && (
+                            <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-300 rounded-lg p-2 sm:p-3">
+                              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                                <div className="flex items-center space-x-1 sm:space-x-2">
+                                  <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                                  <span className="text-xs sm:text-sm font-bold text-green-900">Earliest</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <Bike className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {perScooterAvailability.topPicks.earliest.scooter.color}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-sm sm:text-base text-green-800 font-semibold">
+                                {perScooterAvailability.topPicks.earliest.earliestPeriod?.days} days available
+                              </div>
+                              <div className="text-xs text-green-700">
+                                {perScooterAvailability.topPicks.earliest.earliestPeriod?.startDate.toLocaleDateString()} → {perScooterAvailability.topPicks.earliest.earliestPeriod?.endDate.toLocaleDateString()}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* If same scooter, show combined message */}
+                          {perScooterAvailability.topPicks.isSameScooter && (
+                            <div className="text-xs text-blue-700 mt-1">
+                              This scooter has both the longest availability and the earliest start date.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ALL OPTIONS */}
+                    <div>
+                      <h5 className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">
+                        All Options
+                      </h5>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {perScooterAvailability.scooterOptions.map((option, index) => (
+                          <div
+                            key={option.scooter.id}
+                            className="bg-white border border-amber-200 rounded-lg p-2 sm:p-3"
+                          >
+                            <div className="flex items-center justify-between mb-1 sm:mb-2">
+                              <div className="flex items-center space-x-2">
+                                <Bike className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                                <span className="font-medium text-gray-900 text-sm">{option.scooter.color}</span>
+                              </div>
+                              <span className={`px-1.5 sm:px-2 py-0.5 rounded text-xs font-medium ${
+                                option.availabilityPercent >= 75 ? 'bg-green-100 text-green-800' :
+                                option.availabilityPercent >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {option.availabilityPercent}%
+                              </span>
+                            </div>
+
+                            {/* כל התקופות הזמינות */}
+                            <div className="text-xs text-gray-700 space-y-0.5">
+                              {option.allPeriods.map((period, i) => (
+                                <div key={i} className="flex flex-wrap items-center gap-x-1">
+                                  <span className="font-medium">{period.days}d:</span>
+                                  <span className="text-gray-600">
+                                    {period.startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })} - {period.endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* הודעת זמינות חלקית למספר קטנועים */}
+            {partialAvailability && !partialAvailability.hasFullAvailability && availableScooters.length > 0 && availableScooters.length < numberOfScooters && (
               <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-4">
                 <div className="flex items-start space-x-3">
                   <TrendingUp className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <h4 className="text-sm font-bold text-amber-900 mb-2">
-                      {availableScooters.length < numberOfScooters 
-                        ? `Only ${availableScooters.length} scooter${availableScooters.length !== 1 ? 's' : ''} available for the full period (${numberOfScooters} requested)`
-                        : 'Limited Availability'}
+                      Only {availableScooters.length} scooter{availableScooters.length !== 1 ? 's' : ''} available for the full period ({numberOfScooters} requested)
                     </h4>
-                    
+
                     {partialAvailability.availablePeriods.length > 0 ? (
                       <div className="space-y-2">
-                        <p className="text-sm text-amber-800 font-medium">Best alternative options within your dates:</p>
+                        <p className="text-sm text-amber-800 font-medium">Periods where {numberOfScooters} scooters are available:</p>
                         {partialAvailability.availablePeriods.slice(0, 3).map((period, index) => (
                           <div key={index} className="bg-white border border-amber-200 rounded p-3">
                             <div className="flex items-center justify-between">
@@ -479,15 +776,12 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                             <div className="text-xs text-gray-700 mt-1">
                               <strong>Dates:</strong> {period.startDate.toLocaleDateString()} - {period.endDate.toLocaleDateString()}
                             </div>
-                            <div className="text-xs text-gray-600 mt-1">
-                              {numberOfScooters} scooter{numberOfScooters !== 1 ? 's' : ''} available for this period
-                            </div>
                           </div>
                         ))}
                       </div>
                     ) : (
                       <p className="text-sm text-amber-800">
-                        No {numberOfScooters} scooter{numberOfScooters !== 1 ? 's' : ''} available for any consecutive days in this period.
+                        No period with {numberOfScooters} scooter{numberOfScooters !== 1 ? 's' : ''} available.
                         Try reducing the number of scooters or selecting different dates.
                       </p>
                     )}
@@ -497,29 +791,27 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
             )}
             
             {/* סיכום תוצאות */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Check className="h-5 w-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">
-                    {availableScooters.length >= numberOfScooters 
-                      ? `${availableScooters.length} Available (${numberOfScooters} needed)`
-                      : `${availableScooters.length} Available`}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                  <span className="text-xs sm:text-sm font-medium text-green-800">
+                    {availableScooters.length} Available
                   </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
-                  <span className="text-sm font-medium text-red-800">
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
+                  <span className="text-xs sm:text-sm font-medium text-red-800">
                     {unavailableScooters.length} Unavailable
                   </span>
                 </div>
               </div>
               <div className="text-xs text-gray-500">
-                {new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()}
+                {new Date(startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })} - {new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })} ({rentalDays}d)
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               {/* אופנועים זמינים עם משך זמינות */}
               <div className="space-y-2">
                 <h4 className="flex items-center text-sm font-medium text-green-800">
@@ -542,39 +834,17 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {availableScooters.map(scooter => (
-                      <div key={scooter.id} className="bg-green-50 border border-green-200 rounded p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-3">
-                            <Bike className="h-4 w-4 text-green-600" />
+                      <div key={scooter.id} className="bg-green-50 border border-green-200 rounded p-2 sm:p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Bike className="h-4 w-4 text-green-600 flex-shrink-0" />
                             <div>
-                              <div className="font-medium text-green-900">{scooter.licensePlate}</div>
-                              <div className="text-xs text-green-700">{scooter.color} • {scooter.year}</div>
+                              <div className="font-medium text-green-900 text-sm">{scooter.color}</div>
+                              <div className="text-xs text-green-700">{scooter.licensePlate}</div>
                             </div>
                           </div>
-                          <div className="text-xs text-green-600 font-medium">✓ Available</div>
-                        </div>
-                        
-                        {/* 🔥 NEW: תצוגת משך הזמינות */}
-                        <div className={`mt-2 p-2 rounded-md ${scooter.formattedAvailability.bgColor} border border-opacity-30`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <div className={`w-6 h-6 rounded-full ${scooter.formattedAvailability.bgColor} border flex items-center justify-center text-xs font-bold ${scooter.formattedAvailability.color}`}>
-                                {scooter.formattedAvailability.icon}
-                              </div>
-                              <div>
-                                <div className={`text-xs font-medium ${scooter.formattedAvailability.color}`}>
-                                  {scooter.formattedAvailability.text}
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {scooter.formattedAvailability.subtext}
-                                </div>
-                              </div>
-                            </div>
-                            {scooter.availability.nextBooking && (
-                              <div className="text-xs text-gray-500">
-                                Next: {scooter.availability.nextBooking.customerName}
-                              </div>
-                            )}
+                          <div className={`px-1.5 py-0.5 rounded text-xs font-medium ${scooter.formattedAvailability.bgColor} ${scooter.formattedAvailability.color}`}>
+                            {scooter.formattedAvailability.icon === '∞' ? '∞' : `${scooter.availability.daysAvailable}d`}
                           </div>
                         </div>
                       </div>
@@ -596,29 +866,29 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {unavailableScooters.map(scooter => (
-                      <div key={scooter.id} className="bg-red-50 border border-red-200 rounded p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-3">
-                            <Bike className="h-4 w-4 text-red-600" />
+                      <div key={scooter.id} className="bg-red-50 border border-red-200 rounded p-2 sm:p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Bike className="h-4 w-4 text-red-600 flex-shrink-0" />
                             <div>
-                              <div className="font-medium text-red-900">{scooter.licensePlate}</div>
-                              <div className="text-xs text-red-700">{scooter.color} • {scooter.year}</div>
+                              <div className="font-medium text-red-900 text-sm">{scooter.color}</div>
+                              <div className="text-xs text-red-700">{scooter.licensePlate}</div>
                             </div>
                           </div>
                           <div className="text-xs text-red-600 font-medium">
-                            {scooter.reason === 'maintenance' ? '🔧 Maintenance' : '📅 Rented'}
+                            {scooter.reason === 'maintenance' ? '🔧' : '📅'}
                           </div>
                         </div>
-                        
+
                         {/* פרטי השכרות מתנגשות */}
                         {scooter.conflictingRentals && scooter.conflictingRentals.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-red-200">
-                            <div className="text-xs text-red-600 space-y-1">
+                          <div className="mt-1 pt-1 border-t border-red-200">
+                            <div className="text-xs text-red-600 space-y-0.5">
                               {scooter.conflictingRentals.map(rental => (
-                                <div key={rental.id} className="flex justify-between">
-                                  <span>{rental.customerName}</span>
-                                  <span>
-                                    {new Date(rental.startDate).toLocaleDateString()} - {new Date(rental.endDate).toLocaleDateString()}
+                                <div key={rental.id} className="flex flex-wrap justify-between gap-x-2">
+                                  <span className="truncate max-w-[100px] sm:max-w-none">{rental.customerName}</span>
+                                  <span className="text-red-500">
+                                    {new Date(rental.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })} - {new Date(rental.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}
                                   </span>
                                 </div>
                               ))}
@@ -633,13 +903,11 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
             </div>
 
             {/* הודעת עזרה משופרת */}
-            <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <div className="bg-blue-50 border border-blue-200 rounded p-2 sm:p-3">
               <div className="flex items-start space-x-2">
                 <CalendarDays className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-blue-800">
-                  <strong>Enhanced availability info:</strong> Available scooters now show how long they remain free. 
-                  Green indicates long-term availability, while yellow/orange shows shorter availability windows. 
-                  You can also search for multiple scooters at once and get recommendations for partial availability.
+                  <span className="hidden sm:inline"><strong>Tip:</strong> </span>Search for multiple scooters and get recommendations when full availability isn't possible.
                 </div>
               </div>
             </div>

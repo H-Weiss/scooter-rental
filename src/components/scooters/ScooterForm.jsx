@@ -34,20 +34,7 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              License Plate
-            </label>
-            <input
-              type="text"
-              value={formData.licensePlate}
-              onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-base bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Color
+              Color (Primary Identifier)
             </label>
             <input
               type="text"
@@ -57,8 +44,8 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
               placeholder="Enter color or select from suggestions"
               required
             />
-            
-            {/* הצעות צבע */}
+
+            {/* Color suggestions */}
             <div className="mt-2">
               <p className="text-xs text-gray-500 mb-2">Quick select:</p>
               <div className="flex flex-wrap gap-1">
@@ -77,8 +64,8 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
                   </button>
                 ))}
               </div>
-              
-              {/* שורה שנייה - רק במסכים גדולים יותר */}
+
+              {/* Second row - only on larger screens */}
               <div className="hidden sm:flex flex-wrap gap-1 mt-1">
                 {commonColors.slice(5, 10).map((color) => (
                   <button
@@ -96,6 +83,19 @@ const ScooterForm = ({ onSubmit, onClose, initialData = null }) => {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              License Plate
+            </label>
+            <input
+              type="text"
+              value={formData.licensePlate}
+              onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-base bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              required
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

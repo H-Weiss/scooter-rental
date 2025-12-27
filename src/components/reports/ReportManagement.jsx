@@ -180,10 +180,10 @@ const ReportManagement = ({ onUpdate }) => {
     })
     
     csv += '\nSCOOTER SUMMARY\n'
-    csv += 'License Plate,Color,Number of Rentals,Total Days,Total Income\n'
+    csv += 'Color,License Plate,Number of Rentals,Total Days,Total Income\n'
     
     reportData.scooterStats.forEach(stat => {
-      csv += `${stat.license},${stat.color},${stat.rentalsCount},${stat.totalDays},${stat.totalIncome}\n`
+      csv += `${stat.color},${stat.license},${stat.rentalsCount},${stat.totalDays},${stat.totalIncome}\n`
     })
     
     csv += '\nOVERALL SUMMARY\n'
@@ -506,10 +506,10 @@ const ReportManagement = ({ onUpdate }) => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      License Plate
+                      Color
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Color
+                      License Plate
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Rentals
@@ -526,10 +526,10 @@ const ReportManagement = ({ onUpdate }) => {
                   {reportData.scooterStats.map((stat, index) => (
                     <tr key={stat.license} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {stat.license}
+                        {stat.color}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {stat.color}
+                        {stat.license}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {stat.rentalsCount}
@@ -602,7 +602,7 @@ const ReportManagement = ({ onUpdate }) => {
                           {rental.customerName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {rental.scooterLicense}
+                          {rental.scooterColor}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {rentalStart.toLocaleDateString()} - {rentalEnd.toLocaleDateString()}

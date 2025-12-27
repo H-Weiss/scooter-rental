@@ -196,7 +196,7 @@ const ScooterManagement = ({ onUpdate }) => {
   }
 
   const handleDeleteScooter = async (scooter) => {
-    if (window.confirm(`Are you sure you want to delete scooter ${scooter.licensePlate}?`)) {
+    if (window.confirm(`Are you sure you want to delete scooter ${scooter.color} (${scooter.licensePlate})?`)) {
       try {
         await deleteScooter(scooter.id)
         setScooters(prev => prev.filter(s => s.id !== scooter.id))
@@ -333,10 +333,10 @@ const ScooterManagement = ({ onUpdate }) => {
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    License Plate
+                    Color
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Color
+                    License Plate
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Year
@@ -356,10 +356,10 @@ const ScooterManagement = ({ onUpdate }) => {
                 {scooters.map((scooter) => (
                   <tr key={scooter.id}>
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {scooter.licensePlate}
+                      {scooter.color}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {scooter.color}
+                      {scooter.licensePlate}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                       {scooter.year}
@@ -405,10 +405,10 @@ const ScooterManagement = ({ onUpdate }) => {
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">
-                      {scooter.licensePlate}
+                      {scooter.color}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {scooter.color} • {scooter.year}
+                      {scooter.licensePlate} • {scooter.year}
                     </p>
                   </div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(scooter.status)}`}>

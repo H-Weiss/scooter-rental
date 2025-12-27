@@ -205,8 +205,10 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           })
           
           // בדיקת חפיפה בתאריכים בלבד
+          // הקטנוע תפוס עד וכולל תאריך הסיום (יום ההחזרה)
+          // וזמין רק מהיום שאחרי ההחזרה
           const hasDateConflict = (
-            requestedStartDate < rentalEndDate && 
+            requestedStartDate <= rentalEndDate &&
             requestedEndDate > rentalStartDate
           )
           
@@ -648,8 +650,8 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
                 </option>
                 {filteredScooters?.map(scooter => (
                   <option key={scooter.id} value={scooter.id}>
-                    {scooter.licensePlate} - {scooter.color}
-                    {isEditing && initialData && scooter.id === initialData.scooterId ? ' (Current)' : ''}
+                    {scooter.color} ({scooter.licensePlate})
+                    {isEditing && initialData && scooter.id === initialData.scooterId ? ' - Current' : ''}
                   </option>
                 ))}
               </select>

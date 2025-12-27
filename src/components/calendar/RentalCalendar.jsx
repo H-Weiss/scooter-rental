@@ -207,7 +207,7 @@ const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental
       
       const event = {
         id: rental.id,
-        title: `${rental.scooterLicense || 'Unknown'} - ${rental.customerName}`,
+        title: `${rental.scooterColor || 'Unknown'} - ${rental.customerName}`,
         start: startDateTime,
         end: endDateTime,
         allDay: false, // Not an all-day event
@@ -313,8 +313,8 @@ const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental
                   className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-gray-300 flex-shrink-0" 
                   style={{ backgroundColor: scooterColors[scooter.id] }}
                 ></div>
-                <span className="font-medium truncate">{scooter.licensePlate}</span>
-                <span className="text-gray-500 truncate">({scooter.color})</span>
+                <span className="font-medium truncate">{scooter.color}</span>
+                <span className="text-gray-500 truncate">({scooter.licensePlate})</span>
               </div>
             ))}
           </div>
@@ -480,6 +480,9 @@ const DayDetailsModal = ({ date, rentals, onClose, onViewRental, onNewRental }) 
                     ></div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 truncate">
+                        {rental.scooterColor}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">
                         {rental.scooterLicense}
                       </div>
                       <div className="text-sm text-gray-600 truncate">

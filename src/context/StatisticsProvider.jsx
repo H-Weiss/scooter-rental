@@ -36,13 +36,34 @@ export default function StatisticsProvider({ children }) {
       }
     }
 
-    // סטטיסטיקות אופנועים
-    const availableScooters = scooters.filter(s => s.status === 'available').length
-    const maintenanceScooters = scooters.filter(s => s.status === 'maintenance').length
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-    // סטטיסטיקות השכרות
+    // מצא את כל האופנועים שתפוסים כרגע (לפי השכרות פעילות שכוללות את היום)
+    const currentlyRentedScooterIds = new Set()
+    rentals.forEach(rental => {
+      if (rental.status === 'active' || rental.status === 'pending') {
+        const startDate = new Date(rental.startDate)
+        const endDate = new Date(rental.endDate)
+        startDate.setHours(0, 0, 0, 0)
+        endDate.setHours(23, 59, 59, 999)
+
+        // אם היום בטווח ההשכרה, האופנוע תפוס
+        if (today >= startDate && today <= endDate) {
+          currentlyRentedScooterIds.add(rental.scooterId)
+        }
+      }
+    })
+
+    // סטטיסטיקות אופנועים - מחשב דינמית לפי השכרות
+    const maintenanceScooters = scooters.filter(s => s.status === 'maintenance').length
+    const availableScooters = scooters.filter(s =>
+      s.status !== 'maintenance' && !currentlyRentedScooterIds.has(s.id)
+    ).length
+
+    // סטטיסטיקות השכרות - רק active (לא pending)
     const activeRentals = rentals.filter(r => r.status === 'active').length
-    
+
     // לקוחות ייחודיים (לפי מספר דרכון)
     const uniqueCustomers = new Set(rentals.map(r => r.passportNumber)).size
 
@@ -51,10 +72,12 @@ export default function StatisticsProvider({ children }) {
       activeRentals,
       maintenanceScooters,
       totalCustomers: uniqueCustomers,
+      currentlyRentedCount: currentlyRentedScooterIds.size,
       isLoading: false
     }
 
     console.log('Calculated statistics:', result)
+    console.log('Currently rented scooter IDs:', Array.from(currentlyRentedScooterIds))
     return result
   }, [])
 
