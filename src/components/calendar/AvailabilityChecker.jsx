@@ -507,8 +507,8 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           </div>
           
           <div className="flex-1">
-            {/* First row: From date (full width on mobile) and Days */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+            {/* 2x2 grid on mobile, 1x4 on desktop */}
+            <div className="grid grid-cols-4 gap-2 sm:gap-3">
               {/* תאריך התחלה */}
               <div className="col-span-2 sm:col-span-1 flex flex-col">
                 <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
@@ -519,7 +519,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                   type="date"
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
-                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-1 py-2 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   min={new Date().toISOString().split('T')[0]}
                 />
                 {isSunday(startDate) && (
@@ -531,18 +531,37 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               </div>
 
               {/* מספר ימים */}
-              <div className="col-span-1 flex flex-col">
+              <div className="col-span-2 sm:col-span-1 flex flex-col">
                 <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
                   <Clock className="h-3 w-3 mr-1" />
                   Days
                 </label>
                 <input
-                  type="number"
-                  min="1"
-                  max="365"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={rentalDays}
-                  onChange={(e) => handleDaysChange(e.target.value)}
-                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center bg-white"
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setRentalDays(val === '' ? '' : parseInt(val))
+                      if (val !== '' && startDate) {
+                        const days = parseInt(val)
+                        if (days > 0) {
+                          const newEndDate = new Date(startDate)
+                          newEndDate.setDate(newEndDate.getDate() + days)
+                          setEndDate(newEndDate.toISOString().split('T')[0])
+                        }
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Reset to 1 if empty or invalid on blur
+                    if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                      handleDaysChange(1)
+                    }
+                  }}
+                  className="w-full px-1 py-2 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center bg-white"
                 />
               </div>
 
@@ -556,7 +575,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                   type="date"
                   value={endDate}
                   onChange={(e) => handleEndDateChange(e.target.value)}
-                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-1 py-2 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   min={startDate || new Date().toISOString().split('T')[0]}
                 />
                 {isSunday(endDate) && (
@@ -568,7 +587,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
               </div>
 
               {/* מספר קטנועים */}
-              <div className="col-span-1 flex flex-col">
+              <div className="col-span-2 sm:col-span-1 flex flex-col">
                 <label className="text-xs font-medium text-gray-600 mb-1 flex items-center">
                   <Users className="h-3 w-3 mr-1" />
                   Scooters
@@ -576,7 +595,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                 <select
                   value={numberOfScooters}
                   onChange={(e) => setNumberOfScooters(parseInt(e.target.value))}
-                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full px-1 py-2 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
                   {[1, 2, 3, 4, 5].map(num => (
                     <option key={num} value={num}>{num}</option>
