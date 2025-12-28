@@ -111,15 +111,15 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           currentPeriod = {
             startDate: new Date(day.date),
             endDate: new Date(day.date),
-            days: 1,
             scooters: day.availableScooters.slice(0, numScooters)
           }
         } else {
           currentPeriod.endDate = new Date(day.date)
-          currentPeriod.days++
         }
       } else {
         if (currentPeriod) {
+          // Calculate rental duration (same as RentalForm)
+          currentPeriod.days = Math.ceil((currentPeriod.endDate - currentPeriod.startDate) / (1000 * 60 * 60 * 24))
           periods.push(currentPeriod)
           currentPeriod = null
         }
@@ -127,6 +127,8 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     }
 
     if (currentPeriod) {
+      // Calculate rental duration (same as RentalForm)
+      currentPeriod.days = Math.ceil((currentPeriod.endDate - currentPeriod.startDate) / (1000 * 60 * 60 * 24))
       periods.push(currentPeriod)
     }
 
@@ -185,8 +187,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           if (!currentPeriod) {
             currentPeriod = {
               startDate: new Date(day),
-              endDate: new Date(day),
-              days: 1
+              endDate: new Date(day)
             }
           } else {
             const expectedNext = new Date(currentPeriod.endDate)
@@ -194,19 +195,21 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
             if (day.getTime() === expectedNext.getTime()) {
               currentPeriod.endDate = new Date(day)
-              currentPeriod.days++
             } else {
+              // Calculate rental duration (same as RentalForm)
+              currentPeriod.days = Math.ceil((currentPeriod.endDate - currentPeriod.startDate) / (1000 * 60 * 60 * 24))
               periods.push(currentPeriod)
               currentPeriod = {
                 startDate: new Date(day),
-                endDate: new Date(day),
-                days: 1
+                endDate: new Date(day)
               }
             }
           }
         }
 
         if (currentPeriod) {
+          // Calculate rental duration (same as RentalForm)
+          currentPeriod.days = Math.ceil((currentPeriod.endDate - currentPeriod.startDate) / (1000 * 60 * 60 * 24))
           periods.push(currentPeriod)
         }
 
