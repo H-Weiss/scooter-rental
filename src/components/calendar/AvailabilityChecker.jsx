@@ -51,10 +51,10 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const handleEndDateChange = (newEndDate) => {
     setEndDate(newEndDate)
     if (startDate && newEndDate) {
-      // Use UTC dates to avoid timezone issues
+      // Use local midnight to avoid timezone issues, Math.ceil to match RentalForm
       const start = new Date(startDate + 'T00:00:00')
       const end = new Date(newEndDate + 'T00:00:00')
-      const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
       if (diffDays > 0) {
         setRentalDays(diffDays)
       }
@@ -63,8 +63,9 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
   // פונקציה למציאת תקופות זמינות חלקיות
   const findPartialAvailability = (scooters, rentals, requestedStartDate, requestedEndDate, numScooters) => {
-    const start = new Date(requestedStartDate)
-    const end = new Date(requestedEndDate)
+    // Normalize dates to midnight to avoid timezone issues
+    const start = new Date(requestedStartDate.toISOString().split('T')[0] + 'T00:00:00')
+    const end = new Date(requestedEndDate.toISOString().split('T')[0] + 'T00:00:00')
     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
     const availability = []
 
@@ -142,8 +143,9 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
   // NEW: פונקציה לחישוב זמינות חלקית של כל קטנוע בטווח התאריכים המבוקש
   const findPerScooterAvailability = (scooters, rentals, requestedStartDate, requestedEndDate) => {
-    const start = new Date(requestedStartDate)
-    const end = new Date(requestedEndDate)
+    // Normalize dates to midnight to avoid timezone issues
+    const start = new Date(requestedStartDate.toISOString().split('T')[0] + 'T00:00:00')
+    const end = new Date(requestedEndDate.toISOString().split('T')[0] + 'T00:00:00')
     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
 
     const scooterAvailability = scooters
@@ -293,8 +295,9 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
 
     // הזמנה הבאה הכי קרובה
     const nextBooking = futureRentals[0]
-    const nextBookingDate = new Date(nextBooking.startDate)
-    const daysBetween = Math.ceil((nextBookingDate - requestedStartDate) / (1000 * 60 * 60 * 24))
+    const nextBookingDate = new Date(nextBooking.startDate + 'T00:00:00')
+    const startNormalized = new Date(requestedStartDate.toISOString().split('T')[0] + 'T00:00:00')
+    const daysBetween = Math.ceil((nextBookingDate - startNormalized) / (1000 * 60 * 60 * 24))
 
     return {
       duration: 'limited',
