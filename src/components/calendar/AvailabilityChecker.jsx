@@ -869,8 +869,8 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                               <div className="text-xs text-green-700">{scooter.licensePlate}</div>
                             </div>
                           </div>
-                          <div className={`px-1.5 py-0.5 rounded text-xs font-medium ${scooter.formattedAvailability.bgColor} ${scooter.formattedAvailability.color}`}>
-                            {scooter.formattedAvailability.icon === '∞' ? '∞' : `${scooter.availability.daysAvailable}d`}
+                          <div className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            ✓ {rentalDays}d
                           </div>
                         </div>
                       </div>
