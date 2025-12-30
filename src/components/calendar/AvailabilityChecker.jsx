@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Search, Calendar, Clock, Bike, AlertCircle, Check, X, CalendarDays, Users, TrendingUp, Trophy, Zap } from 'lucide-react'
 
+// Helper to format date as YYYY-MM-DD in local timezone (avoids UTC shift issues)
+const formatDateLocal = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -17,12 +25,12 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
   // אוטו-מילוי תאריך התחלה להיום ותאריך סיום למחר
   useEffect(() => {
     if (!startDate) {
-      const today = new Date().toISOString().split('T')[0]
-      setStartDate(today)
+      const today = new Date()
+      setStartDate(formatDateLocal(today))
       // Set initial end date to tomorrow
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
-      setEndDate(tomorrow.toISOString().split('T')[0])
+      setEndDate(formatDateLocal(tomorrow))
     }
   }, [])
 
@@ -32,7 +40,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     if (newStartDate && rentalDays > 0) {
       const newEndDate = new Date(newStartDate + 'T00:00:00')
       newEndDate.setDate(newEndDate.getDate() + rentalDays)
-      setEndDate(newEndDate.toISOString().split('T')[0])
+      setEndDate(formatDateLocal(newEndDate))
     }
   }
 
@@ -43,7 +51,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     if (startDate) {
       const newEndDate = new Date(startDate + 'T00:00:00')
       newEndDate.setDate(newEndDate.getDate() + days)
-      setEndDate(newEndDate.toISOString().split('T')[0])
+      setEndDate(formatDateLocal(newEndDate))
     }
   }
 
@@ -402,7 +410,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           // בדיקת חפיפה בתאריכים
           const hasDateConflict = (
             requestedStartDate <= rentalEndDate &&
-            requestedEndDate > rentalStartDate
+            requestedEndDate >= rentalStartDate
           )
           
           if (hasDateConflict) {
@@ -527,7 +535,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                   className="w-full px-1 py-2 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  min={new Date().toISOString().split('T')[0]}
+                  min={formatDateLocal(new Date())}
                 />
                 {isSunday(startDate) && (
                   <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
@@ -557,7 +565,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                         if (days > 0) {
                           const start = new Date(startDate + 'T00:00:00')
                           start.setDate(start.getDate() + days)
-                          setEndDate(start.toISOString().split('T')[0])
+                          setEndDate(formatDateLocal(start))
                         }
                       }
                     }
@@ -583,7 +591,7 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
                   value={endDate}
                   onChange={(e) => handleEndDateChange(e.target.value)}
                   className="w-full px-1 py-2 border border-gray-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  min={startDate || new Date().toISOString().split('T')[0]}
+                  min={startDate || formatDateLocal(new Date())}
                 />
                 {isSunday(endDate) && (
                   <p className="mt-1 text-xs text-yellow-600 flex items-center bg-yellow-50 px-1 py-0.5 rounded">
