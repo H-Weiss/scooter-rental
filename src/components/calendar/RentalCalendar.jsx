@@ -5,7 +5,7 @@ import 'moment/locale/en-gb' // English locale
 import { Plus, Eye, DollarSign, Clock, Calendar as CalendarIcon } from 'lucide-react'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import './calendar.css'
-import AvailabilityChecker from './AvailabilityChecker'
+import FleetTools from './FleetTools'
 
 // Force English locale
 moment.locale('en-gb')
@@ -296,9 +296,9 @@ const RentalCalendar = ({ rentals = [], scooters = [], onNewRental, onViewRental
         </h2>
       </div>
 
-      {/* Quick Availability Checker */}
-      <AvailabilityChecker 
-        scooters={validScooters} 
+      {/* Fleet Tools - Availability Checker & Current Status */}
+      <FleetTools
+        scooters={validScooters}
         rentals={validRentals}
       />
   

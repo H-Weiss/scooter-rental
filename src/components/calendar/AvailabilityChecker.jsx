@@ -9,7 +9,7 @@ const formatDateLocal = (date) => {
   return `${year}-${month}-${day}`
 }
 
-const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
+const AvailabilityChecker = ({ scooters = [], rentals = [], isEmbedded = false }) => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [isChecking, setIsChecking] = useState(false)
@@ -511,15 +511,17 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
     return date.getDay() === 0 // 0 is Sunday
   }
 
-  return (
-    <div className={`bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 transition-all duration-300 ${isExpanded ? 'mb-6' : 'mb-4'}`}>
+  const content = (
+    <>
       {/* Header - תמיד גלוי */}
-      <div className="p-4">
+      <div className={isEmbedded ? "px-4 pb-4" : "p-4"}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <Search className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-medium text-gray-900">Quick Availability Check</h3>
-          </div>
+          {!isEmbedded && (
+            <div className="flex items-center space-x-2">
+              <Search className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-medium text-gray-900">Quick Availability Check</h3>
+            </div>
+          )}
           
           <div className="flex-1">
             {/* 2x2 grid on mobile, 1x4 on desktop */}
@@ -951,6 +953,18 @@ const AvailabilityChecker = ({ scooters = [], rentals = [] }) => {
           </div>
         </div>
       )}
+    </>
+  )
+
+  // If embedded, return just the content without wrapper
+  if (isEmbedded) {
+    return content
+  }
+
+  // Otherwise, wrap in the styled container
+  return (
+    <div className={`bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 transition-all duration-300 ${isExpanded ? 'mb-6' : 'mb-4'}`}>
+      {content}
     </div>
   )
 }
