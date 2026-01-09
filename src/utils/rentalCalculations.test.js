@@ -4,6 +4,9 @@ import {
   calculateRentalDays,
   calculateEndDate,
   hasBookingConflict,
+  timeToMinutes,
+  hasTimeBuffer,
+  hasBookingConflictWithTime,
   isDayAvailable,
   findAvailableWindow,
   calculateDailyRate,
@@ -299,6 +302,230 @@ describe('hasBookingConflict', () => {
       const rentalEnd = new Date('2026-01-03T00:00:00')
 
       expect(hasBookingConflict(requestedStart, requestedEnd, rentalStart, rentalEnd)).toBe(true)
+    })
+  })
+})
+
+// ============================================================================
+// timeToMinutes Tests
+// ============================================================================
+describe('timeToMinutes', () => {
+  it('converts HH:MM to minutes', () => {
+    expect(timeToMinutes('00:00')).toBe(0)
+    expect(timeToMinutes('01:00')).toBe(60)
+    expect(timeToMinutes('09:00')).toBe(540)
+    expect(timeToMinutes('12:00')).toBe(720)
+    expect(timeToMinutes('18:00')).toBe(1080)
+    expect(timeToMinutes('23:59')).toBe(1439)
+  })
+
+  it('handles times with minutes', () => {
+    expect(timeToMinutes('09:30')).toBe(570)
+    expect(timeToMinutes('14:45')).toBe(885)
+  })
+
+  it('returns 0 for null/undefined', () => {
+    expect(timeToMinutes(null)).toBe(0)
+    expect(timeToMinutes(undefined)).toBe(0)
+    expect(timeToMinutes('')).toBe(0)
+  })
+})
+
+// ============================================================================
+// hasTimeBuffer Tests
+// ============================================================================
+describe('hasTimeBuffer', () => {
+  describe('with 2-hour default buffer', () => {
+    it('returns true when start is exactly 2 hours after end', () => {
+      expect(hasTimeBuffer('10:00', '12:00')).toBe(true)
+      expect(hasTimeBuffer('14:00', '16:00')).toBe(true)
+    })
+
+    it('returns true when start is more than 2 hours after end', () => {
+      expect(hasTimeBuffer('10:00', '13:00')).toBe(true)
+      expect(hasTimeBuffer('09:00', '18:00')).toBe(true)
+    })
+
+    it('returns false when start is less than 2 hours after end', () => {
+      expect(hasTimeBuffer('10:00', '11:00')).toBe(false)
+      expect(hasTimeBuffer('10:00', '11:59')).toBe(false)
+      expect(hasTimeBuffer('14:00', '15:30')).toBe(false)
+    })
+
+    it('returns false when start is before or equal to end', () => {
+      expect(hasTimeBuffer('12:00', '10:00')).toBe(false)
+      expect(hasTimeBuffer('12:00', '12:00')).toBe(false)
+    })
+  })
+
+  describe('with custom buffer', () => {
+    it('works with 1-hour buffer', () => {
+      expect(hasTimeBuffer('10:00', '11:00', 1)).toBe(true)
+      expect(hasTimeBuffer('10:00', '10:59', 1)).toBe(false)
+    })
+
+    it('works with 3-hour buffer', () => {
+      expect(hasTimeBuffer('10:00', '13:00', 3)).toBe(true)
+      expect(hasTimeBuffer('10:00', '12:59', 3)).toBe(false)
+    })
+  })
+})
+
+// ============================================================================
+// hasBookingConflictWithTime Tests (Same-Day Booking Logic)
+// ============================================================================
+describe('hasBookingConflictWithTime', () => {
+  describe('no date overlap - no conflict regardless of times', () => {
+    it('no conflict when dates dont overlap at all', () => {
+      const result = hasBookingConflictWithTime(
+        new Date('2026-01-05'), new Date('2026-01-08'), '09:00', '18:00',
+        new Date('2026-01-10'), new Date('2026-01-15'), '09:00', '18:00'
+      )
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('full date overlap - conflict regardless of times', () => {
+    it('conflict when dates fully overlap', () => {
+      const result = hasBookingConflictWithTime(
+        new Date('2026-01-05'), new Date('2026-01-10'), '09:00', '18:00',
+        new Date('2026-01-07'), new Date('2026-01-12'), '09:00', '18:00'
+      )
+      expect(result).toBe(true)
+    })
+
+    it('conflict when one range contains the other', () => {
+      const result = hasBookingConflictWithTime(
+        new Date('2026-01-01'), new Date('2026-01-31'), '09:00', '18:00',
+        new Date('2026-01-10'), new Date('2026-01-15'), '09:00', '18:00'
+      )
+      expect(result).toBe(true)
+    })
+  })
+
+  describe('same-day booking: new starts on day existing ends', () => {
+    // Existing rental: Jan 5-10, returns at 12:00
+    // New booking: Jan 10-15
+    const existingStart = new Date('2026-01-05')
+    const existingEnd = new Date('2026-01-10')
+    const existingEndTime = '12:00'
+    const newStart = new Date('2026-01-10')
+    const newEnd = new Date('2026-01-15')
+
+    it('no conflict when pickup is 2+ hours after return', () => {
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '14:00', '18:00',  // Pickup at 14:00
+        existingStart, existingEnd, '09:00', existingEndTime
+      )).toBe(false)
+
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '15:00', '18:00',  // Pickup at 15:00
+        existingStart, existingEnd, '09:00', existingEndTime
+      )).toBe(false)
+    })
+
+    it('conflict when pickup is less than 2 hours after return', () => {
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '13:00', '18:00',  // Pickup at 13:00 (only 1h after 12:00)
+        existingStart, existingEnd, '09:00', existingEndTime
+      )).toBe(true)
+
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '12:00', '18:00',  // Pickup at same time
+        existingStart, existingEnd, '09:00', existingEndTime
+      )).toBe(true)
+
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '10:00', '18:00',  // Pickup before return
+        existingStart, existingEnd, '09:00', existingEndTime
+      )).toBe(true)
+    })
+
+    it('exactly 2 hours buffer is acceptable', () => {
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '14:00', '18:00',  // Exactly 2h after 12:00
+        existingStart, existingEnd, '09:00', '12:00'
+      )).toBe(false)
+    })
+  })
+
+  describe('same-day booking: new ends on day existing starts', () => {
+    // Existing rental: Jan 10-15, starts at 14:00
+    // New booking: Jan 5-10
+    const existingStart = new Date('2026-01-10')
+    const existingEnd = new Date('2026-01-15')
+    const existingStartTime = '14:00'
+    const newStart = new Date('2026-01-05')
+    const newEnd = new Date('2026-01-10')
+
+    it('no conflict when return is 2+ hours before pickup', () => {
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '09:00', '12:00',  // Return at 12:00, 2h before 14:00
+        existingStart, existingEnd, existingStartTime, '18:00'
+      )).toBe(false)
+
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '09:00', '10:00',  // Return at 10:00, 4h before 14:00
+        existingStart, existingEnd, existingStartTime, '18:00'
+      )).toBe(false)
+    })
+
+    it('conflict when return is less than 2 hours before pickup', () => {
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '09:00', '13:00',  // Return at 13:00 (only 1h before 14:00)
+        existingStart, existingEnd, existingStartTime, '18:00'
+      )).toBe(true)
+
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '09:00', '14:00',  // Return at same time
+        existingStart, existingEnd, existingStartTime, '18:00'
+      )).toBe(true)
+
+      expect(hasBookingConflictWithTime(
+        newStart, newEnd, '09:00', '16:00',  // Return after pickup
+        existingStart, existingEnd, existingStartTime, '18:00'
+      )).toBe(true)
+    })
+  })
+
+  describe('default times handling', () => {
+    it('uses default times when not provided', () => {
+      // Default: 09:00 start, 18:00 end
+      // If existing ends at 18:00 (default) and new starts at 09:00 (default)
+      // 09:00 is NOT 2h after 18:00 (previous day logic doesn't apply to same day)
+      const result = hasBookingConflictWithTime(
+        new Date('2026-01-10'), new Date('2026-01-15'), null, null,
+        new Date('2026-01-05'), new Date('2026-01-10'), null, null
+      )
+      // With defaults: new pickup 09:00, existing return 18:00
+      // 09:00 is not >= 18:00 + 2h (20:00), so conflict
+      expect(result).toBe(true)
+    })
+  })
+
+  describe('real-world scenarios', () => {
+    it('morning return allows afternoon pickup same day', () => {
+      // Scooter returns at 10:00, new customer picks up at 14:00
+      expect(hasBookingConflictWithTime(
+        new Date('2026-01-10'), new Date('2026-01-15'), '14:00', '18:00',
+        new Date('2026-01-05'), new Date('2026-01-10'), '09:00', '10:00'
+      )).toBe(false)
+    })
+
+    it('late return blocks same-day pickup', () => {
+      // Scooter returns at 16:00, new customer wants 17:00 pickup
+      expect(hasBookingConflictWithTime(
+        new Date('2026-01-10'), new Date('2026-01-15'), '17:00', '18:00',
+        new Date('2026-01-05'), new Date('2026-01-10'), '09:00', '16:00'
+      )).toBe(true)
+    })
+
+    it('early morning pickup allows same-day return before next booking', () => {
+      // New booking returns at 10:00, existing booking starts at 14:00
+      expect(hasBookingConflictWithTime(
+        new Date('2026-01-05'), new Date('2026-01-10'), '09:00', '10:00',
+        new Date('2026-01-10'), new Date('2026-01-15'), '14:00', '18:00'
+      )).toBe(false)
     })
   })
 })

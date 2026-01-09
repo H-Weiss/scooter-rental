@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Search, Calendar, Clock, Bike, AlertCircle, Check, X, CalendarDays, Users, TrendingUp, Trophy, Zap } from 'lucide-react'
+import { hasBookingConflictWithTime } from '../../utils/rentalCalculations'
+
+// Default times for availability check (allows same-day bookings with 2h buffer)
+const DEFAULT_START_TIME = '09:00'
+const DEFAULT_END_TIME = '18:00'
 
 // Helper to format date as YYYY-MM-DD in local timezone (avoids UTC shift issues)
 const formatDateLocal = (date) => {
@@ -406,14 +411,17 @@ const AvailabilityChecker = ({ scooters = [], rentals = [], isEmbedded = false }
         if (rental.status === 'active' || rental.status === 'pending') {
           const rentalStartDate = new Date(rental.startDate)
           const rentalEndDate = new Date(rental.endDate)
-          
-          // בדיקת חפיפה בתאריכים
-          const hasDateConflict = (
-            requestedStartDate <= rentalEndDate &&
-            requestedEndDate >= rentalStartDate
+
+          // בדיקת חפיפה בתאריכים עם התחשבות בשעות להזמנות באותו יום
+          const hasConflict = hasBookingConflictWithTime(
+            requestedStartDate, requestedEndDate,
+            DEFAULT_START_TIME, DEFAULT_END_TIME,
+            rentalStartDate, rentalEndDate,
+            rental.startTime || DEFAULT_START_TIME,
+            rental.endTime || DEFAULT_END_TIME
           )
-          
-          if (hasDateConflict) {
+
+          if (hasConflict) {
             occupiedScooterIds.add(rental.scooterId)
             if (!conflictingRentals[rental.scooterId]) {
               conflictingRentals[rental.scooterId] = []

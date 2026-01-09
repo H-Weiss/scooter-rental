@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AlertCircle, Calendar, Clock, User } from 'lucide-react'
 import { getCustomerByPassport } from '../../lib/database'
+import { hasBookingConflictWithTime } from '../../utils/rentalCalculations'
 
 const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, isEditing = false, reservationMode = false }) => {
   const [formData, setFormData] = useState({
@@ -158,7 +159,7 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
       // אם אין תאריכים, הצג את כל הקטנועים
       setFilteredScooters(availableScooters || [])
     }
-  }, [formData.startDate, formData.endDate, availableScooters, isEditing])
+  }, [formData.startDate, formData.endDate, formData.startTime, formData.endTime, availableScooters, isEditing])
 
   const filterAvailableScooters = async () => {
     if (!formData.startDate || !formData.endDate) {
@@ -201,22 +202,24 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
           console.log(`Checking rental ${rental.orderNumber}:`, {
             scooter: rental.scooterLicense,
             status: rental.status,
-            period: `${rentalStartDate.toDateString()} - ${rentalEndDate.toDateString()}`
+            period: `${rentalStartDate.toDateString()} - ${rentalEndDate.toDateString()}`,
+            times: `${rental.startTime || '09:00'} - ${rental.endTime || '18:00'}`
           })
-          
-          // בדיקת חפיפה בתאריכים בלבד
-          // הקטנוע תפוס עד וכולל תאריך הסיום (יום ההחזרה)
-          // וזמין רק מהיום שאחרי ההחזרה
-          const hasDateConflict = (
-            requestedStartDate <= rentalEndDate &&
-            requestedEndDate > rentalStartDate
+
+          // בדיקת חפיפה בתאריכים עם התחשבות בשעות להזמנות באותו יום
+          // אפשר להזמין באותו יום שהזמנה קודמת מסתיימת אם יש 2 שעות הפרש
+          const hasConflict = hasBookingConflictWithTime(
+            requestedStartDate, requestedEndDate,
+            formData.startTime, formData.endTime,
+            rentalStartDate, rentalEndDate,
+            rental.startTime, rental.endTime
           )
-          
-          if (hasDateConflict) {
-            console.log(`❌ DATE Conflict found for scooter ${rental.scooterLicense} (${rental.status})`)
+
+          if (hasConflict) {
+            console.log(`❌ Conflict found for scooter ${rental.scooterLicense} (${rental.status})`)
             occupiedScooterIds.add(rental.scooterId)
           } else {
-            console.log(`✅ No date conflict for scooter ${rental.scooterLicense}`)
+            console.log(`✅ No conflict for scooter ${rental.scooterLicense}`)
           }
         }
       })

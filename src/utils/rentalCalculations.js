@@ -4,11 +4,14 @@
  * Business Rules:
  * 1. Rental days = ceil((endDate - startDate) / msPerDay)
  * 2. A scooter is available FROM: end date + 1 (day after previous rental ends)
+ *    OR same day if pickup time >= return time + 2 hours
  * 3. A scooter is available UNTIL: day before next rental starts
- * 4. Can't book ending on the same day another rental starts
+ *    OR same day if return time + 2 hours <= pickup time
+ * 4. Same-day bookings require 2-hour buffer between return and pickup
  */
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
+const DEFAULT_BUFFER_HOURS = 2
 
 /**
  * Format date as YYYY-MM-DD in local timezone (avoids UTC shift issues)
@@ -57,6 +60,75 @@ export const calculateEndDate = (startDate, days) => {
  */
 export const hasBookingConflict = (requestedStart, requestedEnd, rentalStart, rentalEnd) => {
   return requestedStart <= rentalEnd && requestedEnd >= rentalStart
+}
+
+/**
+ * Convert time string "HH:MM" to minutes since midnight
+ * @param {string} time - Time in "HH:MM" format
+ * @returns {number} Minutes since midnight
+ */
+export const timeToMinutes = (time) => {
+  if (!time) return 0
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + (minutes || 0)
+}
+
+/**
+ * Check if there's enough buffer time between end and start times
+ * @param {string} endTime - Return time in "HH:MM" format
+ * @param {string} startTime - Pickup time in "HH:MM" format
+ * @param {number} bufferHours - Required buffer in hours (default 2)
+ * @returns {boolean} True if startTime >= endTime + buffer
+ */
+export const hasTimeBuffer = (endTime, startTime, bufferHours = DEFAULT_BUFFER_HOURS) => {
+  const endMinutes = timeToMinutes(endTime)
+  const startMinutes = timeToMinutes(startTime)
+  return startMinutes >= endMinutes + (bufferHours * 60)
+}
+
+/**
+ * Check if two date ranges have a booking conflict, considering times for same-day bookings
+ * @param {Date} requestedStart - Requested booking start date
+ * @param {Date} requestedEnd - Requested booking end date
+ * @param {string} requestedStartTime - Requested pickup time "HH:MM"
+ * @param {string} requestedEndTime - Requested return time "HH:MM"
+ * @param {Date} rentalStart - Existing rental start date
+ * @param {Date} rentalEnd - Existing rental end date
+ * @param {string} rentalStartTime - Existing rental pickup time "HH:MM"
+ * @param {string} rentalEndTime - Existing rental return time "HH:MM"
+ * @param {number} bufferHours - Required buffer between rentals (default 2)
+ * @returns {boolean} True if there's a conflict
+ */
+export const hasBookingConflictWithTime = (
+  requestedStart, requestedEnd, requestedStartTime, requestedEndTime,
+  rentalStart, rentalEnd, rentalStartTime, rentalEndTime,
+  bufferHours = DEFAULT_BUFFER_HOURS
+) => {
+  // Normalize dates to midnight for comparison
+  const reqStartDate = new Date(requestedStart).setHours(0, 0, 0, 0)
+  const reqEndDate = new Date(requestedEnd).setHours(0, 0, 0, 0)
+  const rentStartDate = new Date(rentalStart).setHours(0, 0, 0, 0)
+  const rentEndDate = new Date(rentalEnd).setHours(0, 0, 0, 0)
+
+  // No date overlap at all - no conflict
+  if (reqEndDate < rentStartDate || reqStartDate > rentEndDate) {
+    return false
+  }
+
+  // Same-day case: new booking starts on day existing rental ends
+  if (reqStartDate === rentEndDate && reqEndDate > rentStartDate) {
+    // Check if there's enough time buffer
+    return !hasTimeBuffer(rentalEndTime || '18:00', requestedStartTime || '09:00', bufferHours)
+  }
+
+  // Same-day case: new booking ends on day existing rental starts
+  if (reqEndDate === rentStartDate && reqStartDate < rentEndDate) {
+    // Check if there's enough time buffer
+    return !hasTimeBuffer(requestedEndTime || '18:00', rentalStartTime || '09:00', bufferHours)
+  }
+
+  // Full overlap (dates overlap by more than just edge days) - conflict
+  return true
 }
 
 /**
