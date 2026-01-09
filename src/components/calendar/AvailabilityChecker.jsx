@@ -77,8 +77,8 @@ const AvailabilityChecker = ({ scooters = [], rentals = [], isEmbedded = false }
     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
     const availability = []
 
-    // בודק כל יום בטווח
-    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+    // בודק כל יום בטווח (including end date - scooter must be available through end date)
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const currentDate = new Date(d)
       const nextDate = new Date(d)
       nextDate.setDate(nextDate.getDate() + 1)
@@ -167,9 +167,9 @@ const AvailabilityChecker = ({ scooters = [], rentals = [], isEmbedded = false }
           (rental.status === 'active' || rental.status === 'pending')
         )
 
-        // בנה רשימת ימים זמינים בטווח
+        // בנה רשימת ימים זמינים בטווח (including end date)
         const availableDays = []
-        for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const currentDate = new Date(d)
           const nextDate = new Date(d)
           nextDate.setDate(nextDate.getDate() + 1)

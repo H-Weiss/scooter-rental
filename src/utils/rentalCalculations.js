@@ -154,7 +154,7 @@ export const getAvailableDays = (rentals, rangeStart, rangeEnd) => {
   const availableDays = []
   const activeRentals = rentals.filter(r => r.status === 'active' || r.status === 'pending')
 
-  for (let d = new Date(rangeStart); d < rangeEnd; d.setDate(d.getDate() + 1)) {
+  for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
     const currentDate = new Date(d)
 
     const isAvailable = activeRentals.every(rental => {

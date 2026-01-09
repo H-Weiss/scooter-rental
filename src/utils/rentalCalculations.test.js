@@ -733,7 +733,7 @@ describe('getAvailableDays', () => {
       const rentals = []
 
       const available = getAvailableDays(rentals, rangeStart, rangeEnd)
-      expect(available.length).toBe(4) // Jan 1, 2, 3, 4
+      expect(available.length).toBe(5) // Jan 1, 2, 3, 4, 5 (including end date)
     })
 
     it('returns correct dates', () => {
@@ -747,6 +747,7 @@ describe('getAvailableDays', () => {
       expect(dates).toContain('2026-01-01')
       expect(dates).toContain('2026-01-02')
       expect(dates).toContain('2026-01-03')
+      expect(dates).toContain('2026-01-04') // End date now included
     })
   })
 
@@ -807,7 +808,7 @@ describe('getAvailableDays', () => {
       }]
 
       const available = getAvailableDays(rentals, rangeStart, rangeEnd)
-      expect(available.length).toBe(4) // All days available
+      expect(available.length).toBe(5) // All days available (including end date)
     })
 
     it('ignores cancelled rentals', () => {
@@ -820,7 +821,7 @@ describe('getAvailableDays', () => {
       }]
 
       const available = getAvailableDays(rentals, rangeStart, rangeEnd)
-      expect(available.length).toBe(4) // All days available
+      expect(available.length).toBe(5) // All days available (including end date)
     })
   })
 
@@ -1090,7 +1091,7 @@ describe('Integration: Real-World Scenarios', () => {
 
       expect(scooter1Available.length).toBe(0) // All days during rental
       expect(scooter2Available.length).toBe(1) // Only Jan 2 available
-      expect(scooter3Available.length).toBe(2) // All days available
+      expect(scooter3Available.length).toBe(3) // All days available (Jan 2, 3, 4 - including end date)
     })
   })
 
