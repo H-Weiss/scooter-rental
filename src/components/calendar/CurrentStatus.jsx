@@ -26,6 +26,12 @@ const daysBetween = (date1, date2) => {
   return Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24))
 }
 
+// Helper to format time as HH:MM (removes seconds if present)
+const formatTime = (time) => {
+  if (!time) return ''
+  return time.substring(0, 5)
+}
+
 const CurrentStatus = ({ scooters = [], rentals = [] }) => {
   const [selectedDate, setSelectedDate] = useState(new Date())
 
@@ -238,7 +244,14 @@ const CurrentStatus = ({ scooters = [], rentals = [] }) => {
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500 flex-shrink-0"></div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-green-900 text-sm truncate">{scooter.color}</div>
+                    <div className="font-medium text-green-900 text-sm truncate flex items-center gap-1">
+                      {scooter.color}
+                      <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium ${
+                        scooter.size === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        {scooter.size === 'small' ? 'S' : 'L'}
+                      </span>
+                    </div>
                     <div className="text-xs text-green-700 truncate">{scooter.licensePlate}</div>
                   </div>
                 </div>
@@ -286,7 +299,14 @@ const CurrentStatus = ({ scooters = [], rentals = [] }) => {
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500 flex-shrink-0"></div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-red-900 text-sm truncate">{scooter.color}</div>
+                    <div className="font-medium text-red-900 text-sm truncate flex items-center gap-1">
+                      {scooter.color}
+                      <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium ${
+                        scooter.size === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        {scooter.size === 'small' ? 'S' : 'L'}
+                      </span>
+                    </div>
                     <div className="text-xs text-red-700 truncate">{scooter.licensePlate}</div>
                   </div>
                 </div>
@@ -296,6 +316,11 @@ const CurrentStatus = ({ scooters = [], rentals = [] }) => {
                     <Clock className="h-3 w-3 flex-shrink-0" />
                     <span className="truncate">Until: {untilDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
                   </div>
+                  {rental.endTime && (
+                    <div className="text-xs text-red-600 mt-0.5 ml-5">
+                      Return: {formatTime(rental.endTime)}
+                    </div>
+                  )}
                   <div className="text-xs text-red-800 mt-1 flex items-center space-x-1">
                     <User className="h-3 w-3 flex-shrink-0" />
                     <span className="truncate">{rental.customerName}</span>
@@ -324,7 +349,14 @@ const CurrentStatus = ({ scooters = [], rentals = [] }) => {
                 <div className="flex items-center space-x-2">
                   <Wrench className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm truncate">{scooter.color}</div>
+                    <div className="font-medium text-gray-900 text-sm truncate flex items-center gap-1">
+                      {scooter.color}
+                      <span className={`inline-flex items-center px-1 py-0.5 rounded text-xs font-medium ${
+                        scooter.size === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        {scooter.size === 'small' ? 'S' : 'L'}
+                      </span>
+                    </div>
                     <div className="text-xs text-gray-600 truncate">{scooter.licensePlate}</div>
                   </div>
                 </div>

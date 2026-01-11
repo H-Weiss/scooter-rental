@@ -186,7 +186,8 @@ export const addScooter = async (scooter) => {
       color: scooter.color,
       year: scooter.year,
       mileage: scooter.mileage || 0,
-      status: scooter.status || 'available'
+      status: scooter.status || 'available',
+      size: scooter.size || 'large'
     }
     
     console.log('Database insert data:', insertData)
@@ -227,7 +228,8 @@ export const updateScooter = async (scooter) => {
         color: scooter.color,
         year: scooter.year,
         mileage: scooter.mileage,
-        status: scooter.status
+        status: scooter.status,
+        size: scooter.size || 'large'
       })
       .eq('id', scooter.id)
       .select()
@@ -319,7 +321,8 @@ export const addRental = async (rental) => {
       deposit: rental.deposit || 4000,
       status: rental.status || 'active', // 'pending', 'active', או 'completed'
       notes: rental.notes || '',
-      requires_agreement: rental.requiresAgreement || false
+      requires_agreement: rental.requiresAgreement || false,
+      pinned: rental.pinned || false
     }
 
     const { data, error } = await supabase
@@ -444,6 +447,7 @@ export const updateRental = async (rental) => {
     if (rental.activatedAt) updateData.activated_at = rental.activatedAt
     if (rental.requiresAgreement !== undefined) updateData.requires_agreement = rental.requiresAgreement
     if (rental.updatedAt) updateData.updated_at = rental.updatedAt
+    if (rental.pinned !== undefined) updateData.pinned = rental.pinned
 
     console.log('Update data for database:', updateData)
 
@@ -522,7 +526,8 @@ const convertScooterToFrontend = (dbScooter) => ({
   color: dbScooter.color,
   year: dbScooter.year,
   mileage: dbScooter.mileage,
-  status: dbScooter.status
+  status: dbScooter.status,
+  size: dbScooter.size || 'large' // 'small' or 'large'
 })
 
 const convertRentalToFrontend = (dbRental) => ({
@@ -548,7 +553,8 @@ const convertRentalToFrontend = (dbRental) => ({
   activatedAt: dbRental.activated_at, // מתי הופעלה הזמנה עתידית
   notes: dbRental.notes,
   createdAt: dbRental.created_at,
-  requiresAgreement: dbRental.requires_agreement
+  requiresAgreement: dbRental.requires_agreement,
+  pinned: dbRental.pinned || false
 })
 
 // Generate order number

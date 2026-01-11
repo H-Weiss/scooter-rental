@@ -339,6 +339,9 @@ const ScooterManagement = ({ onUpdate }) => {
                     License Plate
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Size
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Year
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -360,6 +363,13 @@ const ScooterManagement = ({ onUpdate }) => {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                       {scooter.licensePlate}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        scooter.size === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        {scooter.size === 'small' ? 'S' : 'L'}
+                      </span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                       {scooter.year}
@@ -404,8 +414,13 @@ const ScooterManagement = ({ onUpdate }) => {
                 {/* Header */}
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
                       {scooter.color}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        scooter.size === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        {scooter.size === 'small' ? 'S' : 'L'}
+                      </span>
                     </h3>
                     <p className="text-sm text-gray-600">
                       {scooter.licensePlate} • {scooter.year}

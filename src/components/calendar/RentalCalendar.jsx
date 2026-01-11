@@ -11,6 +11,12 @@ import FleetTools from './FleetTools'
 moment.locale('en-gb')
 const localizer = momentLocalizer(moment)
 
+// Helper to format time as HH:MM (removes seconds if present)
+const formatTime = (time) => {
+  if (!time) return ''
+  return time.substring(0, 5)
+}
+
 // Define custom formats in English only
 const customFormats = {
   dateFormat: 'DD',
@@ -490,7 +496,7 @@ const DayDetailsModal = ({ date, rentals, onClose, onViewRental, onNewRental }) 
                       </div>
                       <div className="text-xs text-gray-500 flex items-center">
                         <Clock className="w-3 h-3 mr-1" />
-                        {rental.startTime} - {rental.endTime}
+                        {formatTime(rental.startTime)} - {formatTime(rental.endTime)}
                       </div>
                       <div className="text-xs text-gray-500">
                         {moment(rental.startDate).format('MMM D')} - {moment(rental.endDate).format('MMM D')}

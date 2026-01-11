@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { AlertCircle, Calendar, Clock, User } from 'lucide-react'
+import { AlertCircle, Calendar, Clock, User, Pin } from 'lucide-react'
 import { getCustomerByPassport } from '../../lib/database'
 import { hasBookingConflictWithTime } from '../../utils/rentalCalculations'
 
@@ -19,7 +19,8 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
     deposit: 4000, // Deposit קבוע 4000 THB
     notes: '',
     hasSignedAgreement: false,
-    isReservation: reservationMode // האם זו הזמנה עתידית
+    isReservation: reservationMode, // האם זו הזמנה עתידית
+    pinned: false // האם הקטנוע נעול להזמנה זו
   })
 
   const [errors, setErrors] = useState({})
@@ -123,7 +124,8 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
         whatsappNumber: initialData.whatsappNumber || '',
         startTime: initialData.startTime || '09:00',
         endTime: initialData.endTime || '18:00',
-        isReservation: initialData.status === 'pending'
+        isReservation: initialData.status === 'pending',
+        pinned: initialData.pinned || false
       }
       setFormData(formattedData)
       setOriginalEndDate(formattedData.endDate)
@@ -313,7 +315,8 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
       await onSubmit({
         ...formData,
         status: formData.isReservation ? 'pending' : 'active',
-        requiresAgreement: !formData.isReservation // רק השכרות פעילות דורשות חוזה
+        requiresAgreement: !formData.isReservation, // רק השכרות פעילות דורשות חוזה
+        pinned: formData.pinned
       })
     } catch (error) {
       console.error('Error submitting rental:', error)
@@ -822,6 +825,31 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
               rows={3}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-base px-3 py-2"
             />
+          </div>
+
+          {/* Pin Scooter Checkbox */}
+          <div className="mt-4">
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input
+                  id="pinned"
+                  name="pinned"
+                  type="checkbox"
+                  checked={formData.pinned}
+                  onChange={(e) => setFormData({ ...formData, pinned: e.target.checked })}
+                  className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                />
+              </div>
+              <div className="ml-3">
+                <label htmlFor="pinned" className="font-medium text-gray-700 text-sm sm:text-base flex items-center">
+                  <Pin className="w-4 h-4 mr-1" />
+                  Pin scooter to this rental
+                </label>
+                <p className="text-xs text-gray-500 mt-1">
+                  When pinned, this specific scooter cannot be reassigned by the system's availability optimizer.
+                </p>
+              </div>
+            </div>
           </div>
   
           {/* Agreement Checkbox - רק בהשכרה מיידית */}

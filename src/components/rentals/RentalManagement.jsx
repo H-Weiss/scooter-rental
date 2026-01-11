@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle, AlertTriangle, CalendarDays } from 'lucide-react'
+import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle, AlertTriangle, CalendarDays, Pin } from 'lucide-react'
 import RentalForm from '../rentals/RentalForm'
 import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
 import useStatistics from '../../context/useStatistics'
@@ -468,6 +468,12 @@ const RentalManagement = ({ onUpdate }) => {
 
   const rentalsByMonth = activeTab === 'pending' ? groupRentalsByMonth(filteredRentals) : null
 
+  // Helper to get scooter size from allScooters
+  const getScooterSize = (scooterId) => {
+    const scooter = allScooters.find(s => s.id === scooterId)
+    return scooter?.size || 'large'
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -727,7 +733,15 @@ const RentalManagement = ({ onUpdate }) => {
                                 {rental.orderNumber}
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                <div className="font-medium text-gray-900">{rental.scooterColor}</div>
+                                <div className="font-medium text-gray-900 flex items-center gap-1">
+                                  {rental.scooterColor}
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                    getScooterSize(rental.scooterId) === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                                  }`}>
+                                    {getScooterSize(rental.scooterId) === 'small' ? 'S' : 'L'}
+                                  </span>
+                                  {rental.pinned && <Pin className="h-3 w-3 text-blue-600" />}
+                                </div>
                                 <div className="text-xs text-gray-500">{rental.scooterLicense}</div>
                               </td>
                               <td className="px-4 py-4 text-sm">
@@ -847,8 +861,15 @@ const RentalManagement = ({ onUpdate }) => {
                               <h3 className="text-lg font-medium text-gray-900">
                                 #{rental.orderNumber}
                               </h3>
-                              <p className="text-sm text-gray-600">
-                                {rental.scooterColor} • {rental.scooterLicense}
+                              <p className="text-sm text-gray-600 flex items-center gap-1">
+                                {rental.scooterColor}
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                  getScooterSize(rental.scooterId) === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                                }`}>
+                                  {getScooterSize(rental.scooterId) === 'small' ? 'S' : 'L'}
+                                </span>
+                                {rental.pinned && <Pin className="h-3 w-3 text-blue-600" />}
+                                • {rental.scooterLicense}
                               </p>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -1017,7 +1038,15 @@ const RentalManagement = ({ onUpdate }) => {
                             {rental.orderNumber}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm">
-                            <div className="font-medium text-gray-900">{rental.scooterColor}</div>
+                            <div className="font-medium text-gray-900 flex items-center gap-1">
+                              {rental.scooterColor}
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                getScooterSize(rental.scooterId) === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                              }`}>
+                                {getScooterSize(rental.scooterId) === 'small' ? 'S' : 'L'}
+                              </span>
+                              {rental.pinned && <Pin className="h-3 w-3 text-blue-600" />}
+                            </div>
                             <div className="text-xs text-gray-500">{rental.scooterLicense}</div>
                           </td>
                           <td className="px-4 py-4 text-sm">
@@ -1153,8 +1182,15 @@ const RentalManagement = ({ onUpdate }) => {
                           <h3 className="text-lg font-medium text-gray-900">
                             #{rental.orderNumber}
                           </h3>
-                          <p className="text-sm text-gray-600">
-                            {rental.scooterColor} • {rental.scooterLicense}
+                          <p className="text-sm text-gray-600 flex items-center gap-1">
+                            {rental.scooterColor}
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                              getScooterSize(rental.scooterId) === 'small' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'
+                            }`}>
+                              {getScooterSize(rental.scooterId) === 'small' ? 'S' : 'L'}
+                            </span>
+                            {rental.pinned && <Pin className="h-3 w-3 text-blue-600" />}
+                            • {rental.scooterLicense}
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">
