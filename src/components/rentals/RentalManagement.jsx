@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
-import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle, AlertTriangle, CalendarDays, Pin } from 'lucide-react'
+import { PlusCircle, CheckCircle, XCircle, PencilIcon, Trash2Icon, Calendar, Clock, PlayCircle, AlertTriangle, CalendarDays, Pin, ListPlus } from 'lucide-react'
 import RentalForm from '../rentals/RentalForm'
+import WaitingListForm from '../rentals/WaitingListForm'
+import WaitingListTab from '../rentals/WaitingListTab'
+import WaitingListMatchModal from '../rentals/WaitingListMatchModal'
 import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
+import { getWaitingList, addWaitingListEntry, updateWaitingListEntry, deleteWaitingListEntry, convertWaitingListEntry, getWaitingListByDateRange } from '../../lib/waitingListDatabase'
 import useStatistics from '../../context/useStatistics'
 
 const RentalManagement = ({ onUpdate }) => {
@@ -13,6 +17,14 @@ const RentalManagement = ({ onUpdate }) => {
   const [activeTab, setActiveTab] = useState('active')
   const [editingRental, setEditingRental] = useState(null)
   const [reservationMode, setReservationMode] = useState(false)
+
+  // Waiting list state
+  const [waitingList, setWaitingList] = useState([])
+  const [showWaitingListForm, setShowWaitingListForm] = useState(false)
+  const [editingWaitingListEntry, setEditingWaitingListEntry] = useState(null)
+  const [showWaitingListMatchModal, setShowWaitingListMatchModal] = useState(false)
+  const [waitingListMatches, setWaitingListMatches] = useState([])
+  const [convertingEntry, setConvertingEntry] = useState(null)
 
   // גישה לנתונים מ-StatisticsProvider
   const { rawData } = useStatistics()
@@ -136,6 +148,15 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
+  const fetchWaitingList = async () => {
+    try {
+      const data = await getWaitingList()
+      setWaitingList(data || [])
+    } catch (error) {
+      console.error('Error fetching waiting list:', error)
+    }
+  }
+
   const fetchAllScooters = async (useCache = false) => {
     try {
       let scootersData
@@ -160,7 +181,7 @@ const RentalManagement = ({ onUpdate }) => {
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
-      await Promise.all([fetchRentals(true), fetchAllScooters(true)])
+      await Promise.all([fetchRentals(true), fetchAllScooters(true), fetchWaitingList()])
       setIsLoading(false)
     }
     loadData()
@@ -314,6 +335,19 @@ const RentalManagement = ({ onUpdate }) => {
     }
   }
 
+  const checkWaitingListMatches = async (rental) => {
+    try {
+      const scooterSize = getScooterSize(rental.scooterId)
+      const matches = await getWaitingListByDateRange(rental.startDate, rental.endDate, scooterSize)
+      if (matches.length > 0) {
+        setWaitingListMatches(matches)
+        setShowWaitingListMatchModal(true)
+      }
+    } catch (error) {
+      console.error('Error checking waiting list matches:', error)
+    }
+  }
+
   const handleCompleteRental = async (rental) => {
     try {
       const updatedRental = await updateRental({
@@ -321,11 +355,13 @@ const RentalManagement = ({ onUpdate }) => {
         status: 'completed',
         completedAt: new Date().toISOString()
       })
-      
+
       setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
       await updateScooterStatusSmart(rental.scooterId)
-      
+
       onUpdate?.()
+
+      await checkWaitingListMatches(rental)
     } catch (error) {
       console.error('Error completing rental:', error)
       setError('Failed to complete rental')
@@ -335,11 +371,14 @@ const RentalManagement = ({ onUpdate }) => {
   const handleDeleteRental = async (rental) => {
     if (window.confirm(`Are you sure you want to delete rental #${rental.orderNumber}?`)) {
       try {
+        const deletedRentalInfo = { ...rental }
         await deleteRental(rental.id)
         setRentals(prev => prev.filter(r => r.id !== rental.id))
         await updateScooterStatusSmart(rental.scooterId)
-        
+
         onUpdate?.()
+
+        await checkWaitingListMatches(deletedRentalInfo)
       } catch (error) {
         console.error('Error deleting rental:', error)
         setError('Failed to delete rental')
@@ -361,6 +400,85 @@ const RentalManagement = ({ onUpdate }) => {
     } catch (error) {
       console.error('Error updating payment status:', error)
       setError('Failed to update payment status')
+    }
+  }
+
+  // =============== WAITING LIST HANDLERS ===============
+
+  const handleCreateWaitingListEntry = async (formData) => {
+    try {
+      const newEntry = await addWaitingListEntry(formData)
+      setWaitingList(prev => [...prev, newEntry])
+      setShowWaitingListForm(false)
+    } catch (error) {
+      console.error('Error creating waiting list entry:', error)
+      setError('Failed to add to waiting list')
+    }
+  }
+
+  const handleEditWaitingListEntry = async (formData) => {
+    try {
+      const updatedEntry = await updateWaitingListEntry({
+        ...editingWaitingListEntry,
+        ...formData
+      })
+      setWaitingList(prev => prev.map(e => e.id === updatedEntry.id ? updatedEntry : e))
+      setShowWaitingListForm(false)
+      setEditingWaitingListEntry(null)
+    } catch (error) {
+      console.error('Error updating waiting list entry:', error)
+      setError('Failed to update waiting list entry')
+    }
+  }
+
+  const handleDeleteWaitingListEntry = async (entry) => {
+    if (window.confirm(`Remove ${entry.customerName} from the waiting list?`)) {
+      try {
+        await deleteWaitingListEntry(entry.id)
+        setWaitingList(prev => prev.filter(e => e.id !== entry.id))
+      } catch (error) {
+        console.error('Error deleting waiting list entry:', error)
+        setError('Failed to delete waiting list entry')
+      }
+    }
+  }
+
+  const handleConvertToRental = (entry) => {
+    setConvertingEntry(entry)
+    setShowWaitingListMatchModal(false)
+    setReservationMode(true)
+    setEditingRental(null)
+    setShowForm(true)
+  }
+
+  const handleConvertRentalSubmit = async (formData) => {
+    try {
+      const selectedScooter = allScooters.find(s => s.id === formData.scooterId)
+      if (!selectedScooter) {
+        throw new Error('Selected scooter not found')
+      }
+
+      const newRental = await addRental({
+        ...formData,
+        scooterLicense: selectedScooter.licensePlate,
+        scooterColor: selectedScooter.color,
+        createdAt: new Date().toISOString(),
+        status: formData.status || (formData.isReservation ? 'pending' : 'active')
+      })
+
+      await convertWaitingListEntry(convertingEntry.id, newRental.id)
+
+      setRentals(prev => [...prev, newRental])
+      setWaitingList(prev => prev.filter(e => e.id !== convertingEntry.id))
+      await updateScooterStatusSmart(selectedScooter.id)
+
+      setShowForm(false)
+      setConvertingEntry(null)
+      setReservationMode(false)
+      onUpdate?.()
+    } catch (error) {
+      console.error('Error converting waiting list entry:', error)
+      setError('Failed to convert waiting list entry')
     }
   }
 
@@ -651,12 +769,34 @@ const RentalManagement = ({ onUpdate }) => {
             <CheckCircle className="h-4 w-4 inline mr-1" />
             Completed Rentals ({stats.completedRentals})
           </button>
+          <button
+            onClick={() => setActiveTab('waitingList')}
+            className={`py-2 px-4 border-b-2 whitespace-nowrap ${
+              activeTab === 'waitingList'
+                ? 'border-amber-500 text-amber-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <ListPlus className="h-4 w-4 inline mr-1" />
+            Waiting List ({waitingList.length})
+          </button>
         </div>
         
         <div className="flex items-center space-x-2">
           <button
             onClick={() => {
+              setEditingWaitingListEntry(null)
+              setShowWaitingListForm(true)
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 border border-amber-300 text-sm font-medium rounded-md text-amber-700 bg-white hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+          >
+            <ListPlus className="h-4 w-4 mr-2" />
+            Add to Waiting List
+          </button>
+          <button
+            onClick={() => {
               setEditingRental(null)
+              setConvertingEntry(null)
               setReservationMode(false)
               setShowForm(true)
             }}
@@ -668,8 +808,21 @@ const RentalManagement = ({ onUpdate }) => {
         </div>
       </div>
 
+      {/* Waiting List Tab */}
+      {activeTab === 'waitingList' && (
+        <WaitingListTab
+          waitingList={waitingList}
+          onEdit={(entry) => {
+            setEditingWaitingListEntry(entry)
+            setShowWaitingListForm(true)
+          }}
+          onDelete={handleDeleteWaitingListEntry}
+          onConvert={handleConvertToRental}
+        />
+      )}
+
       {/* Rentals Display */}
-      {filteredRentals.length === 0 ? (
+      {activeTab !== 'waitingList' && filteredRentals.length === 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
           <div className="text-center text-gray-500">
             {activeTab === 'pending' ? 'No pending reservations found.' :
@@ -677,7 +830,7 @@ const RentalManagement = ({ onUpdate }) => {
              'No completed rentals found.'}
           </div>
         </div>
-      ) : (
+      ) : activeTab !== 'waitingList' && (
         <>
           {activeTab === 'pending' && rentalsByMonth ? (
             /* Grouped by Month Display for Pending Reservations */
@@ -1326,16 +1479,58 @@ const RentalManagement = ({ onUpdate }) => {
       {/* Rental Form Modal */}
       {showForm && (
         <RentalForm
-          onSubmit={editingRental ? handleEditRental : handleCreateRental}
+          onSubmit={convertingEntry ? handleConvertRentalSubmit : editingRental ? handleEditRental : handleCreateRental}
           onClose={() => {
             setShowForm(false)
             setEditingRental(null)
+            setConvertingEntry(null)
             setReservationMode(false)
           }}
           availableScooters={allScooters}
-          initialData={editingRental}
+          initialData={convertingEntry ? {
+            scooterId: '',
+            scooterLicense: '',
+            customerName: convertingEntry.customerName,
+            passportNumber: convertingEntry.passportNumber,
+            whatsappCountryCode: convertingEntry.whatsappCountryCode,
+            whatsappNumber: convertingEntry.whatsappNumber,
+            startDate: convertingEntry.startDate,
+            endDate: convertingEntry.endDate,
+            startTime: '09:00',
+            endTime: '18:00',
+            dailyRate: 1200,
+            deposit: 4000,
+            notes: convertingEntry.notes || '',
+            status: 'pending',
+            pinned: false
+          } : editingRental}
           isEditing={!!editingRental}
           reservationMode={reservationMode}
+        />
+      )}
+
+      {/* Waiting List Form Modal */}
+      {showWaitingListForm && (
+        <WaitingListForm
+          onSubmit={editingWaitingListEntry ? handleEditWaitingListEntry : handleCreateWaitingListEntry}
+          onClose={() => {
+            setShowWaitingListForm(false)
+            setEditingWaitingListEntry(null)
+          }}
+          initialData={editingWaitingListEntry}
+          isEditing={!!editingWaitingListEntry}
+        />
+      )}
+
+      {/* Waiting List Match Modal */}
+      {showWaitingListMatchModal && (
+        <WaitingListMatchModal
+          matches={waitingListMatches}
+          onConvert={handleConvertToRental}
+          onClose={() => {
+            setShowWaitingListMatchModal(false)
+            setWaitingListMatches([])
+          }}
         />
       )}
     </div>
