@@ -63,7 +63,6 @@ const WaitingListTab = ({ waitingList, onEdit, onDelete, onConvert }) => {
                 <tr key={entry.id}>
                   <td className="px-4 py-4 text-sm">
                     <div className="font-medium text-gray-900">{entry.customerName}</div>
-                    <div className="text-xs text-gray-500">{entry.passportNumber}</div>
                   </td>
                   <td className="px-4 py-4 text-sm">
                     <div className="text-xs text-gray-900">
@@ -137,7 +136,6 @@ const WaitingListTab = ({ waitingList, onEdit, onDelete, onConvert }) => {
                   <h3 className="text-lg font-medium text-gray-900">
                     {entry.customerName}
                   </h3>
-                  <p className="text-sm text-gray-500">{entry.passportNumber}</p>
                 </div>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${sizeInfo.className}`}>
                   {sizeInfo.text}

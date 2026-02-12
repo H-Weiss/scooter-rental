@@ -46,7 +46,6 @@ const WaitingListMatchModal = ({ matches, onConvert, onClose }) => {
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="font-medium text-gray-900">{entry.customerName}</div>
-                    <div className="text-xs text-gray-500">{entry.passportNumber}</div>
                   </div>
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${sizeInfo.className}`}>
                     {sizeInfo.text}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { FileText, Calendar, Download, Printer, Filter, Clock } from 'lucide-react'
 import { getRentals, getScooters } from '../../lib/database'
+import { getWaitingListByDateRange } from '../../lib/waitingListDatabase'
+import { calculateDailyRate } from '../../utils/rentalCalculations'
 
 const ReportManagement = ({ onUpdate }) => {
   const [startDate, setStartDate] = useState('')
@@ -10,6 +12,7 @@ const ReportManagement = ({ onUpdate }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [reportData, setReportData] = useState(null)
   const [selectedStatus, setSelectedStatus] = useState('all')
+  const [waitingListData, setWaitingListData] = useState([])
 
   useEffect(() => {
     const currentDate = new Date()
@@ -77,7 +80,7 @@ const ReportManagement = ({ onUpdate }) => {
     setEndDate(end.toISOString().split('T')[0])
   }
 
-  const generateReport = () => {
+  const generateReport = async () => {
     if (!startDate || !endDate) {
       alert('Please select both start and end dates')
       return
@@ -135,6 +138,57 @@ const ReportManagement = ({ onUpdate }) => {
       scooterStats[rental.scooterLicense].totalIncome += income
     })
 
+    // Waiting list demand analysis
+    let waitingListReport = null
+    try {
+      const waitingEntries = await getWaitingListByDateRange(startDate, endDate)
+      setWaitingListData(waitingEntries)
+
+      if (waitingEntries.length > 0) {
+        const entries = waitingEntries.map(entry => {
+          const entryStart = new Date(entry.startDate)
+          const entryEnd = new Date(entry.endDate)
+          const overlapStart = new Date(Math.max(entryStart.getTime(), start.getTime()))
+          const overlapEnd = new Date(Math.min(entryEnd.getTime(), end.getTime()))
+          const days = Math.max(0, Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)))
+          const pricing = calculateDailyRate(days)
+          return {
+            ...entry,
+            overlapDays: days,
+            dailyRateCalc: pricing.dailyRate,
+            potentialIncome: days * pricing.dailyRate
+          }
+        }).filter(entry => entry.overlapDays > 0)
+
+        const bySizeMap = {}
+        entries.forEach(entry => {
+          const size = entry.sizePreference || 'any'
+          if (!bySizeMap[size]) {
+            bySizeMap[size] = { size, count: 0, totalDays: 0, potentialIncome: 0 }
+          }
+          bySizeMap[size].count += 1
+          bySizeMap[size].totalDays += entry.overlapDays
+          bySizeMap[size].potentialIncome += entry.potentialIncome
+        })
+
+        const totalPotentialIncome = entries.reduce((sum, e) => sum + e.potentialIncome, 0)
+        const totalDemandDays = entries.reduce((sum, e) => sum + e.overlapDays, 0)
+
+        waitingListReport = {
+          entries,
+          bySize: Object.values(bySizeMap).sort((a, b) => b.potentialIncome - a.potentialIncome),
+          summary: {
+            totalEntries: entries.length,
+            totalPotentialIncome,
+            totalDemandDays,
+            avgDailyRate: totalDemandDays > 0 ? Math.round(totalPotentialIncome / totalDemandDays) : 0
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading waiting list for report:', error)
+    }
+
     const report = {
       dateRange: {
         start: start.toLocaleDateString(),
@@ -148,7 +202,8 @@ const ReportManagement = ({ onUpdate }) => {
         totalDays,
         averageRentalDays: filteredRentals.length > 0 ? (totalDays / filteredRentals.length).toFixed(1) : 0,
         averageDailyRate: totalDays > 0 ? (totalIncome / totalDays).toFixed(0) : 0
-      }
+      },
+      waitingList: waitingListReport
     }
 
     setReportData(report)
@@ -192,6 +247,27 @@ const ReportManagement = ({ onUpdate }) => {
     csv += `Total Income,${reportData.summary.totalIncome}\n`
     csv += `Average Rental Duration,${reportData.summary.averageRentalDays} days\n`
     csv += `Average Daily Rate,${reportData.summary.averageDailyRate} THB\n`
+
+    if (reportData.waitingList) {
+      const wl = reportData.waitingList
+      csv += '\nWAITING LIST DEMAND ANALYSIS\n'
+      csv += `Missed Requests,${wl.summary.totalEntries}\n`
+      csv += `Potential Revenue,${wl.summary.totalPotentialIncome}\n`
+      csv += `Total Demand Days,${wl.summary.totalDemandDays}\n`
+      csv += `Avg Daily Rate,${wl.summary.avgDailyRate} THB\n`
+
+      csv += '\nDEMAND BY SCOOTER SIZE\n'
+      csv += 'Size,Requests,Total Days,Potential Revenue\n'
+      wl.bySize.forEach(s => {
+        csv += `${s.size},${s.count},${s.totalDays},${s.potentialIncome}\n`
+      })
+
+      csv += '\nWAITING LIST DETAILS\n'
+      csv += 'Customer,Desired Start,Desired End,Days in Period,Size,Daily Rate,Potential Income\n'
+      wl.entries.forEach(entry => {
+        csv += `${entry.customerName},${new Date(entry.startDate).toLocaleDateString()},${new Date(entry.endDate).toLocaleDateString()},${entry.overlapDays},${entry.sizePreference || 'any'},${entry.dailyRateCalc},${entry.potentialIncome}\n`
+      })
+    }
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -632,6 +708,95 @@ const ReportManagement = ({ onUpdate }) => {
               </table>
             </div>
           </div>
+
+          {/* Waiting List Demand Analysis */}
+          {reportData.waitingList && (
+            <>
+              <div className="bg-white rounded-lg shadow-sm border border-amber-200 p-6">
+                <h3 className="text-lg font-medium text-amber-900 mb-4 flex items-center">
+                  <span className="w-3 h-3 bg-amber-400 rounded-full mr-2"></span>
+                  Demand Analysis (Waiting List)
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 summary-grid">
+                  <div className="bg-amber-50 p-4 rounded-lg summary-box">
+                    <p className="text-sm text-amber-600 font-medium summary-label">Missed Requests</p>
+                    <p className="text-2xl font-bold text-amber-900 summary-value">{reportData.waitingList.summary.totalEntries}</p>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg summary-box">
+                    <p className="text-sm text-red-600 font-medium summary-label">Potential Revenue</p>
+                    <p className="text-2xl font-bold text-red-900 summary-value">฿{reportData.waitingList.summary.totalPotentialIncome.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-lg summary-box">
+                    <p className="text-sm text-orange-600 font-medium summary-label">Total Demand Days</p>
+                    <p className="text-2xl font-bold text-orange-900 summary-value">{reportData.waitingList.summary.totalDemandDays}</p>
+                  </div>
+                  <div className="bg-yellow-50 p-4 rounded-lg summary-box">
+                    <p className="text-sm text-yellow-600 font-medium summary-label">Avg Daily Rate</p>
+                    <p className="text-2xl font-bold text-yellow-900 summary-value">฿{reportData.waitingList.summary.avgDailyRate.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-amber-200 p-6">
+                <h3 className="text-lg font-medium text-amber-900 mb-4">Demand by Scooter Size</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-amber-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Size</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Requests</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Total Days</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Potential Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reportData.waitingList.bySize.map((stat, index) => (
+                        <tr key={stat.size} className={index % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">{stat.size}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.count}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{stat.totalDays}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">฿{stat.potentialIncome.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-amber-200 p-6">
+                <h3 className="text-lg font-medium text-amber-900 mb-4">Waiting List Details</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-amber-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Customer</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Desired Dates</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Days in Period</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Size</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Daily Rate</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-700 uppercase tracking-wider">Potential Income</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reportData.waitingList.entries.map((entry, index) => (
+                        <tr key={entry.id} className={index % 2 === 0 ? 'bg-white' : 'bg-amber-50/30'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{entry.customerName}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(entry.startDate).toLocaleDateString()} - {new Date(entry.endDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.overlapDays}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{entry.sizePreference || 'any'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">฿{entry.dailyRateCalc.toLocaleString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">฿{entry.potentialIncome.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
           </div>{/* End of report-content */}
         </div>
       )}

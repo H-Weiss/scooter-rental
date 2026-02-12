@@ -1,5 +1,4 @@
 import { supabase } from './supabase.js'
-import { addCustomer, getCustomerByPassport } from './database.js'
 
 // =============== WAITING LIST OPERATIONS ===============
 
@@ -39,25 +38,11 @@ export const getWaitingList = async () => {
 
 export const addWaitingListEntry = async (entry) => {
   try {
-    const existingCustomer = await getCustomerByPassport(entry.passportNumber)
-    if (!existingCustomer) {
-      try {
-        await addCustomer({
-          passportNumber: entry.passportNumber,
-          name: entry.customerName,
-          whatsappCountryCode: entry.whatsappCountryCode,
-          whatsappNumber: entry.whatsappNumber
-        })
-      } catch (err) {
-        console.error('Error auto-creating customer:', err)
-      }
-    }
-
     const { data, error } = await supabase
       .from('waiting_list')
       .insert([{
         customer_name: entry.customerName,
-        passport_number: entry.passportNumber,
+        passport_number: entry.passportNumber || '',
         whatsapp_country_code: entry.whatsappCountryCode,
         whatsapp_number: entry.whatsappNumber,
         start_date: entry.startDate,

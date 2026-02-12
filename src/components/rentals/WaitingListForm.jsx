@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { AlertCircle, User } from 'lucide-react'
-import { getCustomerByPassport } from '../../lib/database'
+import { AlertCircle } from 'lucide-react'
 
 const countryCodes = [
   { code: '+66', country: 'Thailand', flag: '\u{1F1F9}\u{1F1ED}' },
@@ -60,7 +59,6 @@ const countryCodes = [
 const WaitingListForm = ({ onSubmit, onClose, initialData = null, isEditing = false }) => {
   const [formData, setFormData] = useState({
     customerName: '',
-    passportNumber: '',
     whatsappCountryCode: '+66',
     whatsappNumber: '',
     startDate: new Date().toISOString().split('T')[0],
@@ -71,8 +69,6 @@ const WaitingListForm = ({ onSubmit, onClose, initialData = null, isEditing = fa
 
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [customerLookupStatus, setCustomerLookupStatus] = useState('')
-  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false)
 
   useEffect(() => {
     if (initialData) {
@@ -100,54 +96,11 @@ const WaitingListForm = ({ onSubmit, onClose, initialData = null, isEditing = fa
     })
   }
 
-  const lookupCustomerByPassport = async (passportNumber) => {
-    if (!passportNumber.trim()) return
-
-    try {
-      setIsLookingUpCustomer(true)
-      setCustomerLookupStatus('')
-      const customer = await getCustomerByPassport(passportNumber.trim())
-
-      if (customer) {
-        setFormData(prev => ({
-          ...prev,
-          customerName: customer.name,
-          whatsappCountryCode: customer.whatsapp_country_code,
-          whatsappNumber: customer.whatsapp_number
-        }))
-        setCustomerLookupStatus('Customer found and details auto-filled!')
-      } else {
-        setCustomerLookupStatus('Customer not found. Please enter details manually.')
-      }
-    } catch (error) {
-      console.error('Error looking up customer:', error)
-      setCustomerLookupStatus('Error looking up customer.')
-    } finally {
-      setIsLookingUpCustomer(false)
-    }
-  }
-
-  const handlePassportNumberChange = (value) => {
-    setFormData(prev => ({ ...prev, passportNumber: value }))
-    setCustomerLookupStatus('')
-
-    const timeoutId = setTimeout(() => {
-      if (value.trim().length >= 3) {
-        lookupCustomerByPassport(value)
-      }
-    }, 1000)
-
-    return () => clearTimeout(timeoutId)
-  }
-
   const validateForm = () => {
     const newErrors = {}
 
     if (!formData.customerName.trim()) {
       newErrors.customerName = 'Customer name is required'
-    }
-    if (!formData.passportNumber.trim()) {
-      newErrors.passportNumber = 'Passport number is required'
     }
     if (!formData.whatsappNumber.trim()) {
       newErrors.whatsappNumber = 'WhatsApp number is required'
@@ -276,34 +229,6 @@ const WaitingListForm = ({ onSubmit, onClose, initialData = null, isEditing = fa
               />
               {errors.customerName && (
                 <p className="mt-1 text-sm text-red-600">{errors.customerName}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <User className="w-4 h-4 inline mr-1" />
-                Passport Number *
-                {isLookingUpCustomer && (
-                  <span className="ml-2 text-xs text-blue-600">Looking up...</span>
-                )}
-              </label>
-              <input
-                type="text"
-                value={formData.passportNumber}
-                onChange={(e) => handlePassportNumberChange(e.target.value)}
-                className={`mt-1 block w-full rounded-md shadow-sm text-base px-3 py-2 ${errors.passportNumber ? 'border-red-300' : 'border-gray-300'}`}
-                placeholder="Enter passport number to auto-fill"
-                required
-              />
-              {errors.passportNumber && (
-                <p className="mt-1 text-sm text-red-600">{errors.passportNumber}</p>
-              )}
-              {customerLookupStatus && (
-                <p className={`mt-1 text-sm ${
-                  customerLookupStatus.includes('found') ? 'text-green-600' : 'text-orange-600'
-                }`}>
-                  {customerLookupStatus}
-                </p>
               )}
             </div>
 
