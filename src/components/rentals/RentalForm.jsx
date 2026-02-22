@@ -109,8 +109,8 @@ const RentalForm = ({ onSubmit, onClose, availableScooters, initialData = null, 
 
   // פונקציה לחישוב מחיר יומי לפי כמות ימים (זהה לזו ב-RentalManagement)
   const calculateDailyRate = (days) => {
-    if (days > 10) return 800
-    if (days > 5) return 1000
+    if (days >= 10) return 800
+    if (days >= 5) return 1000
     return 1200
   }
 

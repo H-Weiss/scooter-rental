@@ -779,7 +779,7 @@ describe('calculateDailyRate', () => {
     })
   })
 
-  describe('5-6 days discount', () => {
+  describe('5-9 days discount', () => {
     it('5 days rental - 1000/day (boundary)', () => {
       const result = calculateDailyRate(5)
       expect(result.dailyRate).toBe(1000)
@@ -793,33 +793,31 @@ describe('calculateDailyRate', () => {
       expect(result.total).toBe(6000)
       expect(result.hasDiscount).toBe(true)
     })
-  })
 
-  describe('7-13 days discount', () => {
-    it('7 days rental - 900/day (boundary)', () => {
+    it('7 days rental - 1000/day', () => {
       const result = calculateDailyRate(7)
-      expect(result.dailyRate).toBe(900)
-      expect(result.total).toBe(6300)
+      expect(result.dailyRate).toBe(1000)
+      expect(result.total).toBe(7000)
       expect(result.hasDiscount).toBe(true)
     })
 
-    it('10 days rental - 900/day', () => {
-      const result = calculateDailyRate(10)
-      expect(result.dailyRate).toBe(900)
+    it('9 days rental - 1000/day (boundary)', () => {
+      const result = calculateDailyRate(9)
+      expect(result.dailyRate).toBe(1000)
       expect(result.total).toBe(9000)
       expect(result.hasDiscount).toBe(true)
     })
-
-    it('13 days rental - 900/day (boundary)', () => {
-      const result = calculateDailyRate(13)
-      expect(result.dailyRate).toBe(900)
-      expect(result.total).toBe(11700)
-      expect(result.hasDiscount).toBe(true)
-    })
   })
 
-  describe('14-29 days discount', () => {
-    it('14 days rental - 800/day (boundary)', () => {
+  describe('10+ days discount', () => {
+    it('10 days rental - 800/day (boundary)', () => {
+      const result = calculateDailyRate(10)
+      expect(result.dailyRate).toBe(800)
+      expect(result.total).toBe(8000)
+      expect(result.hasDiscount).toBe(true)
+    })
+
+    it('14 days rental - 800/day', () => {
       const result = calculateDailyRate(14)
       expect(result.dailyRate).toBe(800)
       expect(result.total).toBe(11200)
@@ -833,33 +831,24 @@ describe('calculateDailyRate', () => {
       expect(result.hasDiscount).toBe(true)
     })
 
-    it('29 days rental - 800/day (boundary)', () => {
-      const result = calculateDailyRate(29)
-      expect(result.dailyRate).toBe(800)
-      expect(result.total).toBe(23200)
-      expect(result.hasDiscount).toBe(true)
-    })
-  })
-
-  describe('30+ days discount', () => {
-    it('30 days rental - 700/day (boundary)', () => {
+    it('30 days rental - 800/day', () => {
       const result = calculateDailyRate(30)
-      expect(result.dailyRate).toBe(700)
-      expect(result.total).toBe(21000)
+      expect(result.dailyRate).toBe(800)
+      expect(result.total).toBe(24000)
       expect(result.hasDiscount).toBe(true)
     })
 
-    it('60 days rental - 700/day', () => {
+    it('60 days rental - 800/day', () => {
       const result = calculateDailyRate(60)
-      expect(result.dailyRate).toBe(700)
-      expect(result.total).toBe(42000)
+      expect(result.dailyRate).toBe(800)
+      expect(result.total).toBe(48000)
       expect(result.hasDiscount).toBe(true)
     })
 
-    it('90 days rental - 700/day', () => {
+    it('90 days rental - 800/day', () => {
       const result = calculateDailyRate(90)
-      expect(result.dailyRate).toBe(700)
-      expect(result.total).toBe(63000)
+      expect(result.dailyRate).toBe(800)
+      expect(result.total).toBe(72000)
       expect(result.hasDiscount).toBe(true)
     })
   })
@@ -873,10 +862,9 @@ describe('calculateDailyRate', () => {
     })
 
     it('discounts are based on standard rates, not custom', () => {
-      // The discount rates are fixed (700, 800, 900, 1000), not percentages
-      const result = calculateDailyRate(30, 1500)
-      expect(result.dailyRate).toBe(700) // Fixed rate, not % of custom
-      expect(result.total).toBe(21000)
+      const result = calculateDailyRate(10, 1500)
+      expect(result.dailyRate).toBe(800)
+      expect(result.total).toBe(8000)
       expect(result.hasDiscount).toBe(true)
     })
   })
@@ -1340,8 +1328,8 @@ describe('Integration: Real-World Scenarios', () => {
       const pricing = calculateDailyRate(days)
 
       expect(days).toBe(30)
-      expect(pricing.dailyRate).toBe(700)
-      expect(pricing.total).toBe(21000)
+      expect(pricing.dailyRate).toBe(800)
+      expect(pricing.total).toBe(24000)
     })
   })
 })

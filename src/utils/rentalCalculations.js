@@ -187,12 +187,8 @@ export const findAvailableWindow = (rental1End, rental2Start) => {
 export const calculateDailyRate = (days, baseRate = 1200) => {
   let dailyRate = baseRate
 
-  if (days >= 30) {
-    dailyRate = 700
-  } else if (days >= 14) {
+  if (days >= 10) {
     dailyRate = 800
-  } else if (days >= 7) {
-    dailyRate = 900
   } else if (days >= 5) {
     dailyRate = 1000
   }

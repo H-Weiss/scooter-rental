@@ -31,8 +31,8 @@ const RentalManagement = ({ onUpdate }) => {
 
   // פונקציה לחישוב מחיר יומי לפי כמות ימים
   const calculateDailyRate = (days) => {
-    if (days > 10) return 800
-    if (days > 5) return 1000
+    if (days >= 10) return 800
+    if (days >= 5) return 1000
     return 1200
   }
 
