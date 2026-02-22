@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 .env.local
 .env*.local
+
+# Test coverage
+coverage/
+
+# Claude Code local settings
+.claude/settings.local.json
