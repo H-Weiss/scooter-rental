@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useCallback } from 'react'
 import { getScooters, getRentals } from '../lib/database'
+import { getExpenses } from '../lib/expensesDatabase'
 
 export const StatisticsContext = createContext()
 
@@ -16,11 +17,12 @@ export default function StatisticsProvider({ children }) {
   const [rawData, setRawData] = useState({
     scooters: [],
     rentals: [],
+    expenses: [],
     isDataLoaded: false
   })
 
   // פונקציה לחישוב סטטיסטיקות מהנתונים הגולמיים
-  const calculateStatisticsFromData = useCallback((scooters, rentals) => {
+  const calculateStatisticsFromData = useCallback((scooters, rentals, expenses) => {
     console.log('=== Calculating Statistics ===')
     console.log('Scooters data:', scooters)
     console.log('Rentals data:', rentals)
@@ -67,12 +69,15 @@ export default function StatisticsProvider({ children }) {
     // לקוחות ייחודיים (לפי מספר דרכון)
     const uniqueCustomers = new Set(rentals.map(r => r.passportNumber)).size
 
+    const totalExpenses = (expenses || []).reduce((sum, expense) => sum + Number(expense.amount), 0)
+
     const result = {
       availableScooters,
       activeRentals,
       maintenanceScooters,
       totalCustomers: uniqueCustomers,
       currentlyRentedCount: currentlyRentedScooterIds.size,
+      totalExpenses,
       isLoading: false
     }
 
@@ -87,20 +92,23 @@ export default function StatisticsProvider({ children }) {
       console.log('=== Loading data for statistics ===')
       setStatistics(prev => ({ ...prev, isLoading: true }))
       
-      const [scootersData, rentalsData] = await Promise.all([
+      const [scootersData, rentalsData, expensesData] = await Promise.all([
         getScooters(),
-        getRentals()
+        getRentals(),
+        getExpenses()
       ])
 
-      console.log('Raw data loaded:', { 
-        scooters: scootersData?.length || 0, 
-        rentals: rentalsData?.length || 0 
+      console.log('Raw data loaded:', {
+        scooters: scootersData?.length || 0,
+        rentals: rentalsData?.length || 0,
+        expenses: expensesData?.length || 0
       })
 
       // שמירת הנתונים הגולמיים
       const newRawData = {
         scooters: scootersData || [],
         rentals: rentalsData || [],
+        expenses: expensesData || [],
         isDataLoaded: true
       }
       
@@ -108,8 +116,9 @@ export default function StatisticsProvider({ children }) {
 
       // חישוב סטטיסטיקות חדשות
       const newStatistics = calculateStatisticsFromData(
-        newRawData.scooters, 
-        newRawData.rentals
+        newRawData.scooters,
+        newRawData.rentals,
+        newRawData.expenses
       )
       
       setStatistics(newStatistics)
@@ -134,8 +143,9 @@ export default function StatisticsProvider({ children }) {
       // חישוב מחדש מהנתונים הקיימים
       console.log('Recalculating from existing data')
       const newStatistics = calculateStatisticsFromData(
-        rawData.scooters, 
-        rawData.rentals
+        rawData.scooters,
+        rawData.rentals,
+        rawData.expenses
       )
       setStatistics(newStatistics)
     }
@@ -153,6 +163,7 @@ export default function StatisticsProvider({ children }) {
     rawData: {
       scooters: rawData.scooters,
       rentals: rawData.rentals,
+      expenses: rawData.expenses,
       isDataLoaded: rawData.isDataLoaded
     }
   }
