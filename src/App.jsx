@@ -7,6 +7,8 @@ import RentalCalendar from './components/calendar/RentalCalendar'
 import ReportManagement from './components/reports/ReportManagement'
 import CustomerManagement from './components/customers/CustomerManagement'
 import ExpenseManagement from './components/expenses/ExpenseManagement'
+import OilCheckAlert from './components/dashboard/OilCheckAlert'
+import Toast from './components/notifications/Toast'
 import Header from './components/Header'
 import LoginPage from './components/LoginPage'
 import StatisticsProvider from './context/StatisticsProvider'
@@ -28,7 +30,7 @@ function LoadingScreen() {
 
 // Dashboard Component - עם טיפול נכון ב-loading state
 function Dashboard() {
-  const { statistics } = useStatistics()
+  const { statistics, refreshStatistics } = useStatistics()
   
   const stats = [
     { 
@@ -94,6 +96,13 @@ function Dashboard() {
           </div>
         ))}
       </div>
+      {!statistics.isLoading && statistics.scootersNeedingOilCheck?.length > 0 && (
+        <OilCheckAlert
+          scootersNeedingOilCheck={statistics.scootersNeedingOilCheck}
+          onDone={() => refreshStatistics(true)}
+          onThresholdChange={() => refreshStatistics(false)}
+        />
+      )}
     </div>
   )
 }
@@ -226,6 +235,8 @@ function CalendarSection({ refreshTrigger }) {
 function MainApp() {
   const [activeTab, setActiveTab] = useState('rentals')
   const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState(0)
+  const [showOilCheckToast, setShowOilCheckToast] = useState(true)
+  const { statistics } = useStatistics()
 
   const tabs = [
     { id: 'rentals', name: 'Rentals', icon: Calendar },
@@ -270,6 +281,17 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {showOilCheckToast && !statistics.isLoading && statistics.scootersNeedingOilCheck?.length > 0 && (
+        <Toast
+          message={`${statistics.scootersNeedingOilCheck.length} scooter${statistics.scootersNeedingOilCheck.length > 1 ? 's' : ''} need an oil check`}
+          actionLabel="Show"
+          onAction={() => {
+            setShowOilCheckToast(false)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          onDismiss={() => setShowOilCheckToast(false)}
+        />
+      )}
       <Header />
 
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
