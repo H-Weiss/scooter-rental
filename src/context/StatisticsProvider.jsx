@@ -71,6 +71,31 @@ export default function StatisticsProvider({ children }) {
 
     const totalExpenses = (expenses || []).reduce((sum, expense) => sum + Number(expense.amount), 0)
 
+    // Oil check alert computation
+    const oilCheckThreshold = Number(localStorage.getItem('oilCheckThresholdDays')) || 14
+    const now = Date.now()
+
+    const scootersNeedingOilCheck = scooters
+      .map(scooter => {
+        const lastOilCheck = scooter.lastOilCheck ? new Date(scooter.lastOilCheck) : new Date(0)
+
+        // Find the latest rental end date for this scooter
+        const scooterRentalEnds = rentals
+          .filter(r => r.scooterId === scooter.id && (r.status === 'active' || r.status === 'completed'))
+          .map(r => new Date(r.endDate))
+
+        const lastRentalEnd = scooterRentalEnds.length > 0
+          ? new Date(Math.max(...scooterRentalEnds.map(d => d.getTime())))
+          : new Date(0)
+
+        const lastActiveDate = new Date(Math.max(lastOilCheck.getTime(), lastRentalEnd.getTime()))
+        const idleDays = Math.floor((now - lastActiveDate.getTime()) / (1000 * 60 * 60 * 24))
+
+        return { ...scooter, idleDays, lastActiveDate }
+      })
+      .filter(scooter => scooter.idleDays >= oilCheckThreshold)
+      .sort((a, b) => b.idleDays - a.idleDays)
+
     const result = {
       availableScooters,
       activeRentals,
@@ -78,6 +103,7 @@ export default function StatisticsProvider({ children }) {
       totalCustomers: uniqueCustomers,
       currentlyRentedCount: currentlyRentedScooterIds.size,
       totalExpenses,
+      scootersNeedingOilCheck,
       isLoading: false
     }
 
