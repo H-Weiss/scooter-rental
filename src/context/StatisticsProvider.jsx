@@ -72,7 +72,7 @@ export default function StatisticsProvider({ children }) {
     const totalExpenses = (expenses || []).reduce((sum, expense) => sum + Number(expense.amount), 0)
 
     // Oil check alert computation
-    const oilCheckThreshold = Number(localStorage.getItem('oilCheckThresholdDays')) || 14
+    const oilCheckThreshold = Number(localStorage.getItem('oilCheckThresholdDays')) || 7
     const now = Date.now()
 
     const scootersNeedingOilCheck = scooters

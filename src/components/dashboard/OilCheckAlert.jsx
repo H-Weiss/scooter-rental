@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Droplets, Check, Settings } from 'lucide-react'
 import { updateScooterOilCheck } from '../../lib/database'
 
-const DEFAULT_OIL_CHECK_DAYS = 14
+const DEFAULT_OIL_CHECK_DAYS = 7
 
 export default function OilCheckAlert({ scootersNeedingOilCheck, onDone, onThresholdChange }) {
   const [showSettings, setShowSettings] = useState(false)
