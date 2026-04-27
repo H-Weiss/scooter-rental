@@ -4,7 +4,7 @@ import RentalForm from '../rentals/RentalForm'
 import WaitingListForm from '../rentals/WaitingListForm'
 import WaitingListTab from '../rentals/WaitingListTab'
 import WaitingListMatchModal from '../rentals/WaitingListMatchModal'
-import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter } from '../../lib/database'
+import { getRentals, addRental, updateRental, deleteRental, getScooters, updateScooter, updateScooterOilCheck } from '../../lib/database'
 import { getWaitingList, addWaitingListEntry, updateWaitingListEntry, deleteWaitingListEntry, convertWaitingListEntry, getWaitingListByDateRange } from '../../lib/waitingListDatabase'
 import useStatistics from '../../context/useStatistics'
 
@@ -324,7 +324,8 @@ const RentalManagement = ({ onUpdate }) => {
         
         setRentals(prev => prev.map(r => r.id === updatedRental.id ? updatedRental : r))
         await updateScooterStatusSmart(rental.scooterId)
-        
+        await updateScooterOilCheck(rental.scooterId)
+
         onUpdate?.()
         alert(`Reservation #${rental.orderNumber} has been activated! Don't forget to:\n• Get signed rental agreement\n• Take passport copy\n• Collect deposit`)
         
