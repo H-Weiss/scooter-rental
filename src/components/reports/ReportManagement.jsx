@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { FileText, Calendar, Download, Printer, Filter, Clock } from 'lucide-react'
 import { getRentals, getScooters } from '../../lib/database'
 import { getWaitingListByDateRange } from '../../lib/waitingListDatabase'
+import { getExpenses } from '../../lib/expensesDatabase'
 import { calculateDailyRate } from '../../utils/rentalCalculations'
 
 const ReportManagement = ({ onUpdate }) => {
@@ -13,6 +14,7 @@ const ReportManagement = ({ onUpdate }) => {
   const [reportData, setReportData] = useState(null)
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [waitingListData, setWaitingListData] = useState([])
+  const [expensesData, setExpensesData] = useState([])
 
   useEffect(() => {
     const currentDate = new Date()
@@ -24,12 +26,14 @@ const ReportManagement = ({ onUpdate }) => {
   const loadData = async () => {
     try {
       setIsLoading(true)
-      const [rentalsData, scootersData] = await Promise.all([
+      const [rentalsData, scootersData, expensesResult] = await Promise.all([
         getRentals(),
-        getScooters()
+        getScooters(),
+        getExpenses()
       ])
       setRentals(rentalsData)
       setScooters(scootersData)
+      setExpensesData(expensesResult)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -189,6 +193,36 @@ const ReportManagement = ({ onUpdate }) => {
       console.error('Error loading waiting list for report:', error)
     }
 
+    // Expense calculations
+    const filteredExpenses = expensesData.filter(expense => {
+      const expDate = new Date(expense.date)
+      return expDate >= start && expDate <= end
+    })
+
+    const expensesByCategory = {}
+    filteredExpenses.forEach(expense => {
+      if (!expensesByCategory[expense.category]) {
+        expensesByCategory[expense.category] = { count: 0, total: 0 }
+      }
+      expensesByCategory[expense.category].count += 1
+      expensesByCategory[expense.category].total += Number(expense.amount)
+    })
+
+    const expensesByScooter = {}
+    filteredExpenses.forEach(expense => {
+      if (expense.scooterId) {
+        const scooter = scooters.find(s => s.id === expense.scooterId)
+        const label = scooter ? scooter.licensePlate : 'Unknown'
+        if (!expensesByScooter[label]) {
+          expensesByScooter[label] = 0
+        }
+        expensesByScooter[label] += Number(expense.amount)
+      }
+    })
+
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount), 0)
+    const netProfit = totalIncome - totalExpenses
+
     const report = {
       dateRange: {
         start: start.toLocaleDateString(),
@@ -202,6 +236,13 @@ const ReportManagement = ({ onUpdate }) => {
         totalDays,
         averageRentalDays: filteredRentals.length > 0 ? (totalDays / filteredRentals.length).toFixed(1) : 0,
         averageDailyRate: totalDays > 0 ? (totalIncome / totalDays).toFixed(0) : 0
+      },
+      expenses: {
+        filtered: filteredExpenses,
+        byCategory: expensesByCategory,
+        byScooter: expensesByScooter,
+        totalExpenses,
+        netProfit
       },
       waitingList: waitingListReport
     }
@@ -267,6 +308,16 @@ const ReportManagement = ({ onUpdate }) => {
       wl.entries.forEach(entry => {
         csv += `${entry.customerName},${new Date(entry.startDate).toLocaleDateString()},${new Date(entry.endDate).toLocaleDateString()},${entry.overlapDays},${entry.sizePreference || 'any'},${entry.dailyRateCalc},${entry.potentialIncome}\n`
       })
+    }
+
+    if (reportData.expenses) {
+      csv += '\nEXPENSES SUMMARY\n'
+      csv += 'Category,Count,Total\n'
+      Object.entries(reportData.expenses.byCategory).forEach(([category, data]) => {
+        csv += `${category},${data.count},${data.total}\n`
+      })
+      csv += `\nTotal Expenses,,${reportData.expenses.totalExpenses}\n`
+      csv += `Net Profit,,${reportData.expenses.netProfit}\n`
     }
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -574,6 +625,80 @@ const ReportManagement = ({ onUpdate }) => {
               </div>
             </div>
           </div>
+
+          {/* Expenses & Profit Summary */}
+          {reportData.expenses && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Expenses Summary</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-red-50 p-4 rounded-lg summary-box">
+                  <p className="text-sm text-red-600 font-medium summary-label">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-900 summary-value">
+                    ฿{reportData.expenses.totalExpenses.toLocaleString()}
+                  </p>
+                </div>
+                <div className={`p-4 rounded-lg summary-box ${reportData.expenses.netProfit >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <p className={`text-sm font-medium summary-label ${reportData.expenses.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    Net Profit
+                  </p>
+                  <p className={`text-2xl font-bold summary-value ${reportData.expenses.netProfit >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                    ฿{reportData.expenses.netProfit.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {Object.keys(reportData.expenses.byCategory).length > 0 && (
+                <>
+                  <h4 className="text-md font-semibold text-gray-700 mb-2">By Category</h4>
+                  <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Count</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {Object.entries(reportData.expenses.byCategory).map(([category, data]) => (
+                          <tr key={category}>
+                            <td className="px-4 py-2 text-sm capitalize">{category}</td>
+                            <td className="px-4 py-2 text-sm text-right">{data.count}</td>
+                            <td className="px-4 py-2 text-sm text-right text-red-600">฿{data.total.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {Object.keys(reportData.expenses.byScooter).length > 0 && (
+                <>
+                  <h4 className="text-md font-semibold text-gray-700 mb-2">Expenses by Scooter</h4>
+                  <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Scooter</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total Expenses</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {Object.entries(reportData.expenses.byScooter).map(([license, total]) => (
+                          <tr key={license}>
+                            <td className="px-4 py-2 text-sm">{license}</td>
+                            <td className="px-4 py-2 text-sm text-right text-red-600">฿{total.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Income by Motorcycle</h3>
