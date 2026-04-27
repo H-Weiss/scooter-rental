@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Bike, Users, Calendar, Wrench, FileText } from 'lucide-react'
+import { Bike, Users, Calendar, Wrench, FileText, DollarSign } from 'lucide-react'
 import './index.css'
 import ScooterManagement from './components/scooters/ScooterManagement'
 import RentalManagement from './components/rentals/RentalManagement'
 import RentalCalendar from './components/calendar/RentalCalendar'
 import ReportManagement from './components/reports/ReportManagement'
 import CustomerManagement from './components/customers/CustomerManagement'
+import ExpenseManagement from './components/expenses/ExpenseManagement'
 import Header from './components/Header'
 import LoginPage from './components/LoginPage'
 import StatisticsProvider from './context/StatisticsProvider'
@@ -230,6 +231,7 @@ function MainApp() {
     { id: 'rentals', name: 'Rentals', icon: Calendar },
     { id: 'scooters', name: 'Scooters', icon: Bike },
     { id: 'reports', name: 'Reports', icon: FileText },
+    { id: 'expenses', name: 'Expenses', icon: DollarSign },
     { id: 'customers', name: 'Customers', icon: Users },
     { id: 'maintenance', name: 'Maintenance', icon: Wrench }
   ]
@@ -254,6 +256,16 @@ function MainApp() {
       refreshStatistics(true) // רק רענון ידני אחרי פעולות
       refreshCalendar()
     }} />
+  }
+
+  const ExpenseManagementWrapper = () => {
+    const { refreshStatistics, rawData } = useStatistics()
+    return <ExpenseManagement
+      scooters={rawData.scooters}
+      onUpdate={() => {
+        refreshStatistics(true)
+      }}
+    />
   }
 
   return (
@@ -298,6 +310,8 @@ function MainApp() {
             <RentalManagementWrapper />
           ) : activeTab === 'reports' ? (
             <ReportManagement />
+          ) : activeTab === 'expenses' ? (
+            <ExpenseManagementWrapper />
           ) : activeTab === 'customers' ? (
             <CustomerManagement />
           ) : (
