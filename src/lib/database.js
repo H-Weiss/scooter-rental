@@ -258,6 +258,23 @@ export const deleteScooter = async (id) => {
   }
 }
 
+export const updateScooterOilCheck = async (scooterId) => {
+  try {
+    const { data, error } = await supabase
+      .from('scooters')
+      .update({ last_oil_check: new Date().toISOString() })
+      .eq('id', scooterId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return convertScooterToFrontend(data)
+  } catch (error) {
+    console.error('Error updating oil check:', error)
+    throw new Error(`Failed to update oil check: ${error.message}`)
+  }
+}
+
 // =============== RENTAL OPERATIONS ===============
 
 export const getRentals = async () => {
@@ -527,7 +544,8 @@ const convertScooterToFrontend = (dbScooter) => ({
   year: dbScooter.year,
   mileage: dbScooter.mileage,
   status: dbScooter.status,
-  size: dbScooter.size || 'large' // 'small' or 'large'
+  size: dbScooter.size || 'large', // 'small' or 'large'
+  lastOilCheck: dbScooter.last_oil_check
 })
 
 const convertRentalToFrontend = (dbRental) => ({
