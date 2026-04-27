@@ -459,14 +459,14 @@ const CustomerManagement = ({ onUpdate }) => {
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => setSelectedCustomer(customer)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-600 hover:text-blue-900 p-2 rounded hover:bg-blue-50"
                           >
                             <History className="w-4 h-4 inline mr-1" />
                             <span className="hidden lg:inline">View</span>
                           </button>
                           <button
                             onClick={() => sendReviewRequest(customer)}
-                            className="text-green-600 hover:text-green-900"
+                            className="text-green-600 hover:text-green-900 p-2 rounded hover:bg-green-50"
                           >
                             <MessageCircle className="w-4 h-4 inline mr-1" />
                             <span className="hidden lg:inline">Review</span>
@@ -474,7 +474,7 @@ const CustomerManagement = ({ onUpdate }) => {
                           {customer.rentals.length === 0 && (
                             <button
                               onClick={() => handleDeleteCustomer(customer)}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-red-600 hover:text-red-900 p-2 rounded hover:bg-red-50"
                               title="Delete customer"
                             >
                               <Trash2 className="w-4 h-4" />

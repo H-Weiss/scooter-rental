@@ -385,15 +385,15 @@ const ScooterManagement = ({ onUpdate }) => {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <button 
-                          className="text-blue-600 hover:text-blue-900"
+                        <button
+                          className="text-blue-600 hover:text-blue-900 p-2 rounded hover:bg-blue-50"
                           onClick={() => handleEdit(scooter)}
                           title="Edit Scooter"
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
-                        <button 
-                          className="text-red-600 hover:text-red-900"
+                        <button
+                          className="text-red-600 hover:text-red-900 p-2 rounded hover:bg-red-50"
                           onClick={() => handleDeleteScooter(scooter)}
                           title="Delete Scooter"
                         >

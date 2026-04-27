@@ -57,7 +57,7 @@ const Header = () => {
                 alt="Chapo-Samui Logo" 
                 className="h-12 sm:h-20 w-auto object-contain"
               />
-              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-800 leading-tight">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-800 leading-tight truncate">
                 Chapo-Samui Scooter Rental Management
               </h1>
             </div>

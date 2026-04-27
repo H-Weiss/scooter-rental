@@ -218,14 +218,14 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => handleEdit(expense)}
-                      className="text-blue-500 hover:text-blue-700 mx-1"
+                      className="text-blue-500 hover:text-blue-700 p-2 rounded hover:bg-blue-50"
                       title="Edit"
                     >
                       <Pencil size={16} />
                     </button>
                     <button
                       onClick={() => handleDelete(expense.id)}
-                      className="text-red-500 hover:text-red-700 mx-1"
+                      className="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50"
                       title="Delete"
                     >
                       <Trash2 size={16} />
