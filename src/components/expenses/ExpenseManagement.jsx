@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { getExpenses, addExpense, updateExpense, deleteExpense, getExpenseCategories } from '../../lib/expensesDatabase'
+import { getExpenses, addExpense, updateExpense, deleteExpense } from '../../lib/expensesDatabase'
 import ExpenseForm from './ExpenseForm'
 
 export default function ExpenseManagement({ onUpdate, scooters = [] }) {
   const [expenses, setExpenses] = useState([])
-  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingExpense, setEditingExpense] = useState(null)
-  const [filterCategory, setFilterCategory] = useState('')
   const [dateRange, setDateRange] = useState({ start: '', end: '' })
 
   const setQuickDateRange = (preset) => {
@@ -38,12 +36,8 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
   const loadExpenses = useCallback(async () => {
     try {
       setLoading(true)
-      const [expensesData, categoriesData] = await Promise.all([
-        getExpenses(),
-        getExpenseCategories()
-      ])
+      const expensesData = await getExpenses()
       setExpenses(expensesData)
-      setCategories(categoriesData)
     } catch (error) {
       console.error('Error loading expenses:', error)
     } finally {
@@ -93,7 +87,6 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
   }
 
   const filteredExpenses = expenses.filter(expense => {
-    if (filterCategory && expense.category !== filterCategory) return false
     if (dateRange.start && expense.date < dateRange.start) return false
     if (dateRange.end && expense.date > dateRange.end) return false
     return true
@@ -144,16 +137,6 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
 
       {/* Filters */}
       <div className="flex gap-4 mb-4 flex-wrap">
-        <select
-          value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-        >
-          <option value="">All Categories</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
         <input
           type="date"
           value={dateRange.start}
@@ -168,9 +151,9 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
           className="px-3 py-2 border border-gray-300 rounded-md text-sm"
           placeholder="To"
         />
-        {(filterCategory || dateRange.start || dateRange.end) && (
+        {(dateRange.start || dateRange.end) && (
           <button
-            onClick={() => { setFilterCategory(''); setDateRange({ start: '', end: '' }) }}
+            onClick={() => setDateRange({ start: '', end: '' })}
             className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
           >
             Clear Filters
@@ -191,7 +174,6 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scooter</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
@@ -201,7 +183,7 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
           <tbody className="divide-y divide-gray-200">
             {filteredExpenses.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-4 py-8 text-center text-gray-400">
+                <td colSpan="5" className="px-4 py-8 text-center text-gray-400">
                   No expenses found
                 </td>
               </tr>
@@ -209,7 +191,6 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
               filteredExpenses.map(expense => (
                 <tr key={expense.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-900">{expense.date}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900 capitalize">{expense.category}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{getScooterLabel(expense.scooterId)}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{expense.description || '—'}</td>
                   <td className="px-4 py-3 text-sm text-red-600 font-medium text-right">
@@ -243,7 +224,6 @@ export default function ExpenseManagement({ onUpdate, scooters = [] }) {
         <ExpenseForm
           expense={editingExpense}
           scooters={scooters}
-          categories={categories}
           onSave={handleSave}
           onClose={handleClose}
         />

@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
-import CategoryAutocomplete from './CategoryAutocomplete'
 
-export default function ExpenseForm({ expense, scooters, categories, onSave, onClose }) {
+export default function ExpenseForm({ expense, scooters, onSave, onClose }) {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     amount: '',
-    category: '',
     scooterId: '',
     description: ''
   })
@@ -16,7 +14,6 @@ export default function ExpenseForm({ expense, scooters, categories, onSave, onC
       setFormData({
         date: expense.date || new Date().toISOString().split('T')[0],
         amount: expense.amount || '',
-        category: expense.category || '',
         scooterId: expense.scooterId || '',
         description: expense.description || ''
       })
@@ -25,7 +22,7 @@ export default function ExpenseForm({ expense, scooters, categories, onSave, onC
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!formData.date || !formData.amount || !formData.category) return
+    if (!formData.date || !formData.amount) return
 
     onSave({
       ...formData,
@@ -73,15 +70,6 @@ export default function ExpenseForm({ expense, scooters, categories, onSave, onC
               placeholder="0.00"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-            <CategoryAutocomplete
-              value={formData.category}
-              onChange={(val) => handleChange('category', val)}
-              categories={categories}
             />
           </div>
 

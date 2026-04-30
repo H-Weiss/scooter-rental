@@ -199,15 +199,6 @@ const ReportManagement = ({ onUpdate }) => {
       return expDate >= start && expDate <= end
     })
 
-    const expensesByCategory = {}
-    filteredExpenses.forEach(expense => {
-      if (!expensesByCategory[expense.category]) {
-        expensesByCategory[expense.category] = { count: 0, total: 0 }
-      }
-      expensesByCategory[expense.category].count += 1
-      expensesByCategory[expense.category].total += Number(expense.amount)
-    })
-
     const expensesByScooter = {}
     filteredExpenses.forEach(expense => {
       if (expense.scooterId) {
@@ -239,7 +230,6 @@ const ReportManagement = ({ onUpdate }) => {
       },
       expenses: {
         filtered: filteredExpenses,
-        byCategory: expensesByCategory,
         byScooter: expensesByScooter,
         totalExpenses,
         netProfit
@@ -312,11 +302,7 @@ const ReportManagement = ({ onUpdate }) => {
 
     if (reportData.expenses) {
       csv += '\nEXPENSES SUMMARY\n'
-      csv += 'Category,Count,Total\n'
-      Object.entries(reportData.expenses.byCategory).forEach(([category, data]) => {
-        csv += `${category},${data.count},${data.total}\n`
-      })
-      csv += `\nTotal Expenses,,${reportData.expenses.totalExpenses}\n`
+      csv += `Total Expenses,${reportData.expenses.totalExpenses}\n`
       csv += `Net Profit,,${reportData.expenses.netProfit}\n`
     }
 
@@ -647,32 +633,6 @@ const ReportManagement = ({ onUpdate }) => {
                   </p>
                 </div>
               </div>
-
-              {Object.keys(reportData.expenses.byCategory).length > 0 && (
-                <>
-                  <h4 className="text-md font-semibold text-gray-700 mb-2">By Category</h4>
-                  <div className="bg-white rounded-lg shadow overflow-x-auto mb-6">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Count</th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {Object.entries(reportData.expenses.byCategory).map(([category, data]) => (
-                          <tr key={category}>
-                            <td className="px-4 py-2 text-sm capitalize">{category}</td>
-                            <td className="px-4 py-2 text-sm text-right">{data.count}</td>
-                            <td className="px-4 py-2 text-sm text-right text-red-600">฿{data.total.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
 
               {Object.keys(reportData.expenses.byScooter).length > 0 && (
                 <>

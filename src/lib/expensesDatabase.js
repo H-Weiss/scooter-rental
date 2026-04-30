@@ -87,20 +87,3 @@ export const deleteExpense = async (id) => {
   }
 }
 
-export const getExpenseCategories = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('category')
-
-    if (error) throw error
-
-    const defaultCategories = ['fuel', 'repair', 'insurance', 'registration', 'rent', 'marketing', 'equipment', 'utilities', 'other']
-    const dbCategories = (data || []).map((row) => row.category).filter(Boolean)
-    const merged = [...new Set([...defaultCategories, ...dbCategories])]
-    return merged.sort()
-  } catch (error) {
-    console.error('Error fetching expense categories:', error)
-    throw new Error(`Failed to fetch expense categories: ${error.message}`)
-  }
-}
