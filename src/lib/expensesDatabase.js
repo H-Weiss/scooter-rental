@@ -6,7 +6,6 @@ const convertExpenseToFrontend = (dbExpense) => ({
   id: dbExpense.id,
   date: dbExpense.date,
   amount: dbExpense.amount,
-  category: dbExpense.category,
   description: dbExpense.description,
   scooterId: dbExpense.scooter_id,
   createdAt: dbExpense.created_at
@@ -34,7 +33,6 @@ export const addExpense = async (expense) => {
       .insert([{
         date: expense.date,
         amount: expense.amount,
-        category: expense.category,
         description: expense.description || null,
         scooter_id: expense.scooterId || null
       }])
@@ -56,7 +54,6 @@ export const updateExpense = async (id, expense) => {
       .update({
         date: expense.date,
         amount: expense.amount,
-        category: expense.category,
         description: expense.description || null,
         scooter_id: expense.scooterId || null
       })
